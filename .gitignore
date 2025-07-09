@@ -1,0 +1,4 @@
+brainviewer/static/images_data/
+db.sqlite3
+*/migrations
+*/__pycache__

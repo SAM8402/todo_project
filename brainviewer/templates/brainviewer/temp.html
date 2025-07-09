@@ -1,0 +1,1399 @@
+<!doctype html>
+<html lang="en" style="height:100%;">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ title }}</title> {# Dynamic title, should be set by backend e.g., "Viewer - B:222 S:1000" #}
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v5.3.0/css/ol.css" type="text/css">
+    <style>
+        html, body { margin: 0; padding: 0; overflow: hidden; height: 100%; width: 100%; font-family: Arial, sans-serif; }
+        .main-container { width: 100%; height: 100%; position: relative; }
+
+        /* Default: JP2 Fullscreen, BFI Thumbnail */
+        #jp2_map {
+            width: 100%;
+            height: 100%;
+            background-color: #f0f0f0;
+            position: relative;
+        }
+
+        /* BFI Thumbnail Styling (when JP2 is fullscreen) */
+        .bfi-thumbnail-container:not(.fullscreen-mode) {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 270px;
+            height: 220px;
+            border: 2px solid #555;
+            box-shadow: 3px 3px 10px rgba(0,0,0,0.3);
+            z-index: 1001;
+            background-color: white;
+            overflow: hidden; 
+        }
+
+        .bfi-thumbnail-container:not(.fullscreen-mode) .bfi-image-viewport {
+            position: absolute;
+            width: 350px; 
+            height: 300px; 
+            left: 50%;
+            top: 50%;
+            transform: translate(-58%, -45%); 
+        }
+
+        .bfi-thumbnail-container:not(.fullscreen-mode) #bfi_thumbnail_img {
+            display: block;
+            width: 100%; 
+            height: auto; 
+        }
+
+        .bfi-thumbnail-container:not(.fullscreen-mode) .bfi-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%; 
+            height: 100%; 
+            pointer-events: auto;
+            cursor: crosshair;
+        }
+
+        /* BFI Fullscreen Styling */
+        .bfi-thumbnail-container.fullscreen-mode {
+            position: absolute; 
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+            box-shadow: none;
+            z-index: 1000;
+            overflow: visible; 
+        }
+
+        .bfi-thumbnail-container.fullscreen-mode .bfi-image-viewport {
+            position: static; 
+            width: 100%;
+            height: 100%;
+            transform: none; 
+        }
+
+        .bfi-thumbnail-container.fullscreen-mode #bfi_thumbnail_img {
+            display: block; 
+            width: 100%;
+            height: 100%;
+            object-fit: contain; 
+        }
+
+        .bfi-thumbnail-container.fullscreen-mode .bfi-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: auto;
+            cursor: crosshair;
+        }
+
+        /* Switched: JP2 Thumbnail, BFI Fullscreen */
+        #jp2_map.thumbnail-mode {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 300px;
+            height: 250px;
+            border: 2px solid #555;
+            box-shadow: 3px 3px 10px rgba(0,0,0,0.3);
+            z-index: 1001;
+        }
+        #jp2_map.thumbnail-mode .ol-zoomslider {
+            display: none;
+        }
+
+        .coordinates { position: absolute; bottom: 10px; left: 10px; background-color: rgba(0, 0, 0, 0.7); color: white; padding: 5px 10px; border-radius: 4px; font-size: 12px; z-index: 1000; }
+        #bfi_target_coordinates { bottom: 30px; }
+        #jp2_target_coordinates { bottom: 50px; }
+
+        .bfi-thumbnail-container .caption { font-size: 10px; text-align: center; padding: 3px; background-color: rgba(255, 255, 255, 0.8); color: #333; position: absolute; bottom: 0; left:0; width: 100%; box-sizing: border-box;}
+        .bfi-overlay .pointer-lines { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;}
+        .bfi-overlay .vline, .bfi-overlay .hline { position: absolute; background: blue; display: none; pointer-events: none;}
+        .bfi-overlay .vline { width: 1px; height: 100%; top: 0; }
+        .bfi-overlay .hline { height: 1px; width: 100%; left: 0; }
+        
+        .test-marker-bfi { 
+            position: absolute; 
+            width: 10px; height: 10px; 
+            background-color: limegreen; 
+            border: 1px solid darkgreen; 
+            border-radius: 50%; 
+            transform: translate(-50%, -50%); 
+            z-index: 10; 
+            pointer-events: none;
+        }
+
+        #bfi_view_rect {
+            position: absolute;
+            border: 1.5px solid red;
+            background-color: transparent;
+            pointer-events: auto;
+            cursor: grab;
+            z-index: 5;
+            display: none;
+        }
+
+        /* Controls styling */
+        #controls {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            z-index: 2000;
+            background: rgba(240, 240, 240, 0.9);
+            padding: 8px;
+            border-radius: 4px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            display: flex;
+            gap: 15px; /* Spacing between dropdown groups */
+            align-items: center;
+        }
+        #controls label {
+            margin-right: 5px;
+            font-size: 14px;
+        }
+        #controls select {
+            padding: 4px;
+            border-radius: 3px;
+            border: 1px solid #ccc;
+            font-size: 14px;
+        }
+        .button-stack {
+            position: fixed;
+            top: 60px; /* Moved down to accommodate controls */
+            left: 10px;
+            z-index: 2000; /* Ensure it's above other elements if controls are also 2000 */
+            display: flex;
+            flex-direction: column;
+            gap: 3px; /* Space between buttons */
+        }
+
+
+        #switchViewBtn, #splitViewBtn {
+            /*
+            position: fixed;
+            top: 60px; /* Moved down to accommodate controls */
+            left: 10px;
+            z-index: 2000; /* Ensure it's above other elements if controls are also 2000 */
+            */
+            padding: 10px 16px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        #switchViewBtn:hover, #splitViewBtn:hover {
+            background-color: #0056b3;
+        }
+        .split-left {
+            /* optional: add styles if needed */
+            
+        }
+        
+        .split-right {
+            /* optional: add styles if needed */
+        }
+        
+    </style>
+    <script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v5.3.0/build/ol.js"></script>
+</head>
+<body style="height:100%;">
+    <div id="controls">
+        <div>
+            <label for="biosampleIdSelect">Biosample ID:</label>
+            <select id="biosampleIdSelect">
+                <!-- Options populated by JS -->
+            </select>
+        </div>
+        <div>
+            <label for="sliceNumberSelect">Slice Number:</label>
+            <select id="sliceNumberSelect">
+                <!-- Options populated by JS -->
+            </select>
+        </div>
+    </div>
+    <div class="button-stack">
+        <button id="switchViewBtn">View BFI Fullscreen</button>
+        <button id="splitViewBtn" style="display: none;" >Split View</button>
+    </div>
+
+
+    <div class="main-container">
+        <div id="jp2_map"></div>
+        <div id="mouse_coordinates" class="coordinates">JP2 Mouse: N/A</div>
+        <div id="bfi_target_coordinates" class="coordinates" style="bottom: 30px;">BFI Target: N/A</div>
+        <div id="jp2_target_coordinates" class="coordinates" style="bottom: 50px;">JP2 Target: N/A</div>
+
+        <div class="bfi-thumbnail-container" id="bfi_thumb_wrap">
+            <div class="bfi-image-viewport" id="bfi_image_viewport_el">
+                <div id="bfi_ol_map" style="width: 100%; height: 100%; display: none;"></div>
+                <img id="bfi_thumbnail_img" src="" alt="BFI Thumbnail"> 
+                <div class="bfi-overlay" id="bfi_thumb_overlay">
+                     <div id="bfi_view_rect"></div>
+                    <div class="pointer-lines" id="bfi_hover_crosshair">
+                        <div class="vline"></div>
+                        <div class="hline"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="caption">BFI Slice (Rotated)</div>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        // --- Data injected by Flask/backend ---
+        const jp2MapUrl = {{ jp2_map_url | safe}};
+        const jp2FullSize = {{ jp2_full_size | safe}};
+        const jp2InitialViewRotationDeg = {{ jp2_initial_view_rotation_deg | safe}};
+
+        const bfiImageUrl = {{ bfi_image_url | safe}};
+        const bfiCssRotationDeg = {{ bfi_css_rotation_deg | safe}};
+        let bfiNaturalWidth = 0; 
+        let bfiNaturalHeight = 0; 
+        let bfiLoaded = false;
+
+        const H_jp2_to_bfi = {{ h_jp2_to_bfi | safe}};
+        let H_bfi_to_jp2 = null;
+        
+        const testPointsJP2 = {{ test_points_jp2  | safe}};
+
+        // --- Data for dropdowns and navigation ---
+        const currentBiosampleId = {{ current_biosample_id | safe}}; 
+        const currentSliceNumber = {{ current_slice_number | safe}}; // Ensure this is a string if values are strings
+        const availableBiosampleIds = {{ available_biosample_ids | safe}}; 
+        const availableSliceNumbers = {{ available_slice_numbers  | safe}}; 
+        const viewerUrlTemplate = {{ viewer_url_template | safe}}; // e.g., "/viewer/__BID__/__SID__"
+
+        console.log("--- Frontend Data Received ---");
+        console.log("JP2 Map URL:", jp2MapUrl);
+        // ... (other logs can be kept or removed as needed) ...
+        console.log("Current Biosample ID:", currentBiosampleId);
+        console.log("Current Slice Number:", currentSliceNumber);
+        console.log("Available Biosample IDs:", availableBiosampleIds);
+        console.log("Available Slice Numbers:", availableSliceNumbers);
+        console.log("Viewer URL Template:", viewerUrlTemplate);
+
+
+        // --- DOM Elements ---
+        const mapElement = document.getElementById('jp2_map');
+        const coordinatesDisplay = document.getElementById('mouse_coordinates');
+        const bfiTargetCoordinatesDisplay = document.getElementById('bfi_target_coordinates');
+        const jp2TargetCoordinatesDisplay = document.getElementById('jp2_target_coordinates');
+        const bfiThumbnailContainer = document.getElementById('bfi_thumb_wrap');
+        const bfiThumbnailImg = document.getElementById('bfi_thumbnail_img');
+        const bfiThumbOverlay = document.getElementById('bfi_thumb_overlay');
+        const bfiHoverCrosshairLines = document.getElementById('bfi_hover_crosshair');
+        const bfiViewRect = document.getElementById('bfi_view_rect');
+        const switchViewBtn = document.getElementById('switchViewBtn');
+        // Send the message to the parent
+        const coordinates = jp2TargetCoordinatesDisplay.textContent
+        window.parent.postMessage(
+            { type: 'jp2_coordinates', coordinates: coordinates },
+            '*'
+        );
+        // Dropdown elements
+        const biosampleIdSelect = document.getElementById('biosampleIdSelect');
+        const sliceNumberSelect = document.getElementById('sliceNumberSelect');
+
+        // --- OL Map Variables ---
+        var olMap; // JP2 OpenLayers map instance
+        var bfiOlMap = null; // Global variable for BFI OpenLayers map
+        var bfiView = null; // Global variable for BFI OpenLayers view
+        var bfiTestMarkerLayer = null; // Global variable for BFI test marker layer
+        var bfiHoverMarkerLayer = null; 
+        var bfiViewRectLayer = null; // For the JP2 view rectangle on the BFI map
+
+        let view;
+        let jp2TestMarkerLayer; 
+        let jp2HoverMarkerLayer;
+
+        // --- State Variables ---
+        let isDraggingBFIRect = false;
+        let bfiViewRectDragOffset = { x: 0, y: 0 };
+        let jp2IsFullscreen = true;
+
+        // --- Core Functions (invertAffineMatrix, applyHomography, coordinate transformations, drawing, etc.) ---
+        // ... (These functions remain unchanged from your previous working version) ...
+        function invertAffineMatrix(H) {
+            if (!H || H.length < 2 || H[0].length < 3 || H[1].length < 3 ) {
+                console.error("Invalid matrix H for inversion:", H);
+                return null;
+            }
+            const a = H[0][0], b = H[0][1], tx = H[0][2];
+            const c = H[1][0], d = H[1][1], ty = H[1][2];
+            const det = a * d - b * c;
+            if (Math.abs(det) < 1e-7) { 
+                console.error("Matrix determinant is near zero, cannot invert.", det, H); 
+                return null; 
+            }
+            const invDet = 1.0 / det;
+            return [
+                [invDet * d, invDet * -b, invDet * (b * ty - d * tx)],
+                [invDet * -c, invDet * a,  invDet * (c * tx - a * ty)],
+                [0, 0, 1] 
+            ];
+        }
+
+        function applyHomography(point, H) {
+             if (!H || H.length < 3 || H[0].length < 3 || H[1].length < 3 || H[2].length < 3) {
+                 console.error("Invalid matrix H for applyHomography:", H); return null;
+            }
+            const x = point[0], y = point[1];
+            const W = H[2][0] * x + H[2][1] * y + H[2][2];
+            if (Math.abs(W) < 1e-7) { console.warn("Homography denominator W is near zero for point:", point, " H:", H); return null; }
+            const tx = (H[0][0] * x + H[0][1] * y + H[0][2]) / W;
+            const ty = (H[1][0] * x + H[1][1] * y + H[1][2]) / W;
+            return [tx, ty];
+        }
+
+        function getBfiDisplayCoordsFromNatural(bfiX_nat, bfiY_nat) {
+            if (!bfiLoaded || !bfiNaturalWidth || !bfiNaturalHeight) return null;
+
+            const imgElement = bfiThumbnailImg;
+            const imgBoxWidth = imgElement.clientWidth; 
+            const imgBoxHeight = imgElement.clientHeight; 
+
+            if (imgBoxWidth <= 0 || imgBoxHeight <= 0) return null;
+
+            let scale;
+            let contentOffsetXInBox = 0, contentOffsetYInBox = 0; 
+            
+            if (bfiThumbnailContainer.classList.contains('fullscreen-mode')) {
+                const natAspect = bfiNaturalWidth / bfiNaturalHeight;
+                const boxAspectForObjectFit = imgBoxWidth / imgBoxHeight; 
+                
+                if (natAspect > boxAspectForObjectFit) { 
+                    scale = imgBoxWidth / bfiNaturalWidth;
+                    contentOffsetYInBox = (imgBoxHeight - (bfiNaturalHeight * scale)) / 2;
+                } else { 
+                    scale = imgBoxHeight / bfiNaturalHeight;
+                    contentOffsetXInBox = (imgBoxWidth - (bfiNaturalWidth * scale)) / 2;
+                }
+            } else {
+                scale = imgBoxWidth / bfiNaturalWidth; 
+            }
+
+            const x_scaled_content = bfiX_nat * scale;
+            const y_scaled_content = bfiY_nat * scale;
+
+            const x_in_imgBox_unrotated = x_scaled_content + contentOffsetXInBox;
+            const y_in_imgBox_unrotated = y_scaled_content + contentOffsetYInBox;
+
+            const centerX_imgBox = imgBoxWidth / 2;
+            const centerY_imgBox = imgBoxHeight / 2;
+
+            const x_rel_center_unrotated = x_in_imgBox_unrotated - centerX_imgBox;
+            const y_rel_center_unrotated = y_in_imgBox_unrotated - centerY_imgBox;
+
+            const angleRad = bfiCssRotationDeg * Math.PI / 180;
+            const cosA = Math.cos(angleRad);
+            const sinA = Math.sin(angleRad);
+
+            const x_rel_center_rotated = x_rel_center_unrotated * cosA - y_rel_center_unrotated * sinA;
+            const y_rel_center_rotated = x_rel_center_unrotated * sinA + y_rel_center_unrotated * cosA;
+            
+            const finalX_on_overlay = x_rel_center_rotated + centerX_imgBox;
+            const finalY_on_overlay = y_rel_center_rotated + centerY_imgBox;
+            
+            return { x: finalX_on_overlay, y: finalY_on_overlay };
+        }
+        
+        function getBFIMouseRelatedCoords(event, relativeToElement /* bfiThumbOverlay */) {
+            if (!bfiLoaded || !bfiNaturalWidth || !bfiNaturalHeight) return null;
+
+            const imgElement = bfiThumbnailImg; 
+            const overlayElement = relativeToElement; 
+
+            const overlayRect = overlayElement.getBoundingClientRect(); 
+            const mouseX_on_overlay = event.clientX - overlayRect.left;
+            const mouseY_on_overlay = event.clientY - overlayRect.top;
+
+            const imgBoxWidth = imgElement.clientWidth; 
+            const imgBoxHeight = imgElement.clientHeight; 
+
+            if (imgBoxWidth <= 0 || imgBoxHeight <= 0) return null;
+            
+            const centerX_imgBox = imgBoxWidth / 2;
+            const centerY_imgBox = imgBoxHeight / 2;
+
+            const mouseX_rel_center_imgBox = mouseX_on_overlay - centerX_imgBox;
+            const mouseY_rel_center_imgBox = mouseY_on_overlay - centerY_imgBox;
+
+            const angleRad = -bfiCssRotationDeg * Math.PI / 180; 
+            const cosA = Math.cos(angleRad);
+            const sinA = Math.sin(angleRad);
+
+            const unrotated_X_rel_center_imgBox = mouseX_rel_center_imgBox * cosA - mouseY_rel_center_imgBox * sinA;
+            const unrotated_Y_rel_center_imgBox = mouseX_rel_center_imgBox * sinA + mouseY_rel_center_imgBox * cosA;
+
+            const mouseX_in_imgBox_unrotated = unrotated_X_rel_center_imgBox + centerX_imgBox;
+            const mouseY_in_imgBox_unrotated = unrotated_Y_rel_center_imgBox + centerY_imgBox;
+
+            let scale;
+            let contentOffsetXInBox = 0, contentOffsetYInBox = 0;
+
+            if (bfiThumbnailContainer.classList.contains('fullscreen-mode')) {
+                const natAspect = bfiNaturalWidth / bfiNaturalHeight;
+                const boxAspectForObjectFit = imgBoxWidth / imgBoxHeight;
+                if (natAspect > boxAspectForObjectFit) {
+                    scale = imgBoxWidth / bfiNaturalWidth;
+                    contentOffsetYInBox = (imgBoxHeight - (bfiNaturalHeight * scale)) / 2;
+                } else {
+                    scale = imgBoxHeight / bfiNaturalHeight;
+                    contentOffsetXInBox = (imgBoxWidth - (bfiNaturalWidth * scale)) / 2;
+                }
+            } else {
+                scale = imgBoxWidth / bfiNaturalWidth;
+            }
+            
+            if (Math.abs(scale) < 1e-7) return null;
+
+            const x_in_scaled_content = mouseX_in_imgBox_unrotated - contentOffsetXInBox;
+            const y_in_scaled_content = mouseY_in_imgBox_unrotated - contentOffsetYInBox;
+
+            const bfiX_nat = x_in_scaled_content / scale;
+            const bfiY_nat = y_in_scaled_content / scale;
+
+            return {
+                mouseX_relative: mouseX_on_overlay, 
+                mouseY_relative: mouseY_on_overlay,
+                bfiX_nat,
+                bfiY_nat
+            };
+        }
+
+        function drawOnBFIOverlay(bfiX_nat, bfiY_nat, isFixedMarker = false, targetElement = null) {
+            const displayCoords = getBfiDisplayCoordsFromNatural(bfiX_nat, bfiY_nat);
+            if (!displayCoords) {
+                if (!isFixedMarker && targetElement) hideCrosshairOnBFI(targetElement);
+                return;
+            }
+            const { x: displayX, y: displayY } = displayCoords;
+
+            const overlayW = bfiThumbOverlay.clientWidth; 
+            const overlayH = bfiThumbOverlay.clientHeight;
+            const tolerance = 1; 
+            if (displayX < -tolerance || displayX > overlayW + tolerance || displayY < -tolerance || displayY > overlayH + tolerance) {
+                 if (!isFixedMarker && targetElement) hideCrosshairOnBFI(targetElement);
+                return;
+            }
+
+            if (!isFixedMarker) {
+                const crosshairTarget = targetElement || bfiHoverCrosshairLines;
+                const vLine = crosshairTarget.querySelector('.vline');
+                const hLine = crosshairTarget.querySelector('.hline');
+                bfiTargetCoordinatesDisplay.textContent = `BFI Target: Nat(${bfiX_nat.toFixed(0)}, ${bfiY_nat.toFixed(0)})`;
+                vLine.style.left = `${displayX}px`;
+                hLine.style.top = `${displayY}px`;
+                vLine.style.display = 'block';
+                hLine.style.display = 'block';
+            } else { 
+                const bfiMarker = document.createElement('div');
+                bfiMarker.className = 'test-marker-bfi';
+                bfiMarker.style.left = `${displayX}px`;
+                bfiMarker.style.top = `${displayY}px`;
+                bfiThumbOverlay.appendChild(bfiMarker);
+            }
+        }
+
+        function hideCrosshairOnBFI(crosshairElem) {
+            const targetElem = crosshairElem || bfiHoverCrosshairLines;
+            const vLine = targetElem.querySelector('.vline');
+            const hLine = targetElem.querySelector('.hline');
+            if (vLine) vLine.style.display = 'none';
+            if (hLine) hLine.style.display = 'none';
+            if (targetElem === bfiHoverCrosshairLines) { 
+                 bfiTargetCoordinatesDisplay.textContent = "BFI Target: N/A";
+            }
+        }
+
+        function drawMarkerOnJP2(jp2X_img, jp2Y_img, isHoverMarker = false) {
+            if (!olMap) return;
+            const targetLayerSource = isHoverMarker ? jp2HoverMarkerLayer.getSource() : jp2TestMarkerLayer.getSource();
+            if (isHoverMarker) targetLayerSource.clear(); 
+
+            const ol_y = -jp2Y_img;
+            const feature = new ol.Feature({ geometry: new ol.geom.Point([jp2X_img, ol_y]) });
+            targetLayerSource.addFeature(feature);
+
+            if (isHoverMarker) {
+                jp2TargetCoordinatesDisplay.textContent = `JP2 Target: X=${jp2X_img.toFixed(0)}, Y=${jp2Y_img.toFixed(0)}`;
+            }
+        }
+
+        function hideHoverMarkerOnJP2() {
+            if (jp2HoverMarkerLayer && jp2HoverMarkerLayer.getSource()) {
+                jp2HoverMarkerLayer.getSource().clear();
+            }
+            jp2TargetCoordinatesDisplay.textContent = "JP2 Target: N/A";
+        }
+        
+        function updateBFIViewRectangle() {
+            // Always hide the old DOM-based rectangle
+            bfiViewRect.style.display = 'none';
+
+            if (!olMap || !view || !bfiLoaded || !H_jp2_to_bfi || !bfiOlMap || !bfiViewRectLayer) {
+                if (bfiViewRectLayer) bfiViewRectLayer.getSource().clear();
+                return;
+            }
+
+            const jp2ExtentOL = view.calculateExtent(olMap.getSize());
+            const jp2_corners_img = [
+                [jp2ExtentOL[0], -jp2ExtentOL[3]], // tl
+                [jp2ExtentOL[2], -jp2ExtentOL[3]], // tr
+                [jp2ExtentOL[2], -jp2ExtentOL[1]], // br
+                [jp2ExtentOL[0], -jp2ExtentOL[1]], // bl
+            ];
+
+            const bfi_nat_corners = jp2_corners_img.map(p_jp2 => applyHomography(p_jp2, H_jp2_to_bfi)).filter(p => p !== null);
+
+            if (bfi_nat_corners.length < 4) {
+                bfiViewRectLayer.getSource().clear();
+                return;
+            }
+
+            const bfi_ol_coords = bfi_nat_corners.map(p => [p[0], bfiNaturalHeight - p[1]]);
+            const polygon = new ol.geom.Polygon([bfi_ol_coords]);
+            const feature = new ol.Feature(polygon);
+            bfiViewRectLayer.getSource().clear();
+            bfiViewRectLayer.getSource().addFeature(feature);
+        }        
+        function sendCoordinatesToParent(jp2X, jp2Y, bfiX, bfiY, type = 'coordinate_update') {
+            console.log('trying to send the coordinates:', jp2X, jp2Y, bfiX, bfiY, type);
+            window.parent.postMessage('testing', '*');
+            if (window.parent && window.parent !== window) {
+                try {
+                    const message = {
+                        type: type,
+                        jp2_coordinates: jp2X !== null ? {
+                            x: jp2X,
+                            y: jp2Y
+                        } : null,
+                        bfi_coordinates: bfiX !== null ? {
+                            x: bfiX,
+                            y: bfiY
+                        } : null,
+                        timestamp: Date.now(),
+                        biosample_id: currentBiosampleId,
+                        slice_number: currentSliceNumber,
+                        is_live: type === 'live_tracking'
+                    };
+                    
+                    window.parent.postMessage(message, '*');
+                    console.log('Sent coordinates to parent:', message);
+                } catch (error) {
+                    console.error('Error sending message to parent:', error);
+                }
+            }
+        }
+
+        function initializeJP2Map() {
+            const zoomifySource = new ol.source.Zoomify({ url: jp2MapUrl, size: jp2FullSize, crossOrigin: "anonymous", tierSizeCalculation: 'truncated', imageSmoothing: false, tileSize: 2048 });
+            const tileLayer = new ol.layer.Tile({ source: zoomifySource });
+            const imageExtent = zoomifySource.getTileGrid().getExtent();
+            const pixelProjection = new ol.proj.Projection({ code: 'pixel-coords', units: 'pixels', extent: imageExtent });
+
+            const sourceMaxZoom = zoomifySource.getTileGrid().getMaxZoom();
+            const desiredViewMaxZoom = Math.min(sourceMaxZoom + 3, 10);; 
+
+            view = new ol.View({
+                projection: pixelProjection,
+                extent: imageExtent,
+                rotation: (jp2InitialViewRotationDeg * Math.PI / 180),
+                constrainOnlyCenter: true,
+                smoothExtentConstraint: false,
+                maxZoom: desiredViewMaxZoom, 
+                minZoom: 0 
+            });
+            
+            jp2TestMarkerLayer = new ol.layer.Vector({ 
+                source: new ol.source.Vector(), 
+                style: new ol.style.Style({ 
+                    image: new ol.style.Circle({ 
+                        radius: 7, 
+                        fill: new ol.style.Fill({color: 'limegreen'}), 
+                        stroke: new ol.style.Stroke({color: 'darkgreen', width: 2}) 
+                    }) 
+                }), 
+                zIndex: 10 
+            });
+            jp2HoverMarkerLayer = new ol.layer.Vector({ 
+                source: new ol.source.Vector(), 
+                style: new ol.style.Style({ 
+                    image: new ol.style.Circle({ 
+                        radius: 5, 
+                        fill: new ol.style.Fill({color: 'rgba(255, 0, 0, 0.8)'}), 
+                        stroke: new ol.style.Stroke({color: 'black', width: 1}) 
+                    }) 
+                }), 
+                zIndex: 11 
+            });
+
+            olMap = new ol.Map({
+                layers: [tileLayer, jp2TestMarkerLayer, jp2HoverMarkerLayer], 
+                target: mapElement,
+                view: view,
+                controls: ol.control.defaults({ attribution: false, rotate: false, zoom: false })
+                         .extend([new ol.control.ZoomSlider()]),
+                loadTilesWhileAnimating: true,
+                loadTilesWhileInteracting: true
+            });
+
+            try { 
+                if (view.getProjection() && view.getProjection().getExtent()) {
+                    view.fit(view.getProjection().getExtent(), { size: olMap.getSize(), constrainResolution: false, nearest: true }); 
+                }
+            }
+            catch (e) { console.error("Error fitting JP2 view:", e); }
+
+            // In your JP2 map pointermove event handler, replace the existing handler with this:
+            olMap.on('pointermove', function(event) {
+                if (event.dragging || !bfiLoaded || !H_jp2_to_bfi || isDraggingBFIRect) { 
+                    hideCrosshairOnBFI(bfiHoverCrosshairLines); 
+                    // Send null coordinates when not tracking
+                    sendCoordinatesToParent(null, null, null, null, 'live_tracking');
+                    return; 
+                }
+                try {
+                    const ol_jp2Coord = olMap.getEventCoordinate(event.originalEvent);
+                    if (ol_jp2Coord) {
+                        const jp2X_for_H = ol_jp2Coord[0];
+                        const jp2Y_for_H = -ol_jp2Coord[1]; 
+                        
+                        coordinatesDisplay.textContent = `JP2 Mouse: X=${Math.round(jp2X_for_H)}, Y=${Math.round(jp2Y_for_H)} (Z: ${view.getZoom().toFixed(2)})`;
+                        
+                        if (jp2X_for_H < 0 || jp2X_for_H > jp2FullSize[0] || jp2Y_for_H < 0 || jp2Y_for_H > jp2FullSize[1]) {
+                            hideCrosshairOnBFI(bfiHoverCrosshairLines); 
+                            // Send null coordinates when outside bounds
+                            sendCoordinatesToParent(null, null, null, null, 'live_tracking');
+                            return;
+                        }
+                        
+                        const bfiCoord_nat = applyHomography([jp2X_for_H, jp2Y_for_H], H_jp2_to_bfi);
+                        if (bfiCoord_nat) { 
+                            drawOnBFIOverlay(bfiCoord_nat[0], bfiCoord_nat[1], false, bfiHoverCrosshairLines); 
+                            // Send live coordinates to parent - JP2 coordinates and corresponding BFI coordinates
+                            sendCoordinatesToParent(
+                                Math.round(jp2X_for_H), 
+                                Math.round(jp2Y_for_H), 
+                                Math.round(bfiCoord_nat[0]), 
+                                Math.round(bfiCoord_nat[1]), 
+                                'live_tracking'
+                            );
+                        } else { 
+                            hideCrosshairOnBFI(bfiHoverCrosshairLines); 
+                            // Send only JP2 coordinates when BFI transformation fails
+                            sendCoordinatesToParent(
+                                Math.round(jp2X_for_H), 
+                                Math.round(jp2Y_for_H), 
+                                null, 
+                                null, 
+                                'live_tracking'
+                            );
+                        }
+                    } else { 
+                        hideCrosshairOnBFI(bfiHoverCrosshairLines); 
+                        // Send null coordinates when no valid coordinate
+                        sendCoordinatesToParent(null, null, null, null, 'live_tracking');
+                    }
+                } catch (e) { 
+                    console.error("Error in JP2 pointermove:", e); 
+                    hideCrosshairOnBFI(bfiHoverCrosshairLines); 
+                    // Send null coordinates on error
+                    sendCoordinatesToParent(null, null, null, null, 'live_tracking');
+                }
+            });
+
+          mapElement.addEventListener('mouseleave', function() {
+                if (isDraggingBFIRect) return;
+                coordinatesDisplay.textContent = "JP2 Mouse: N/A";
+                hideCrosshairOnBFI(bfiHoverCrosshairLines);
+                
+                // Send null coordinates when mouse leaves JP2 map
+                sendCoordinatesToParent(null, null, null, null, 'live_tracking');
+            });
+            olMap.on('moveend', updateBFIViewRectangle);
+        }
+
+        function loadBFIThumbnail() {
+             if (!bfiImageUrl) { 
+                console.error("BFI Image URL is not available.");
+                handleBfiLoadError(); 
+                return;
+            }
+            bfiThumbnailImg.src = bfiImageUrl;
+            bfiThumbnailImg.style.transform = `rotate(${bfiCssRotationDeg}deg)`;
+            bfiThumbnailImg.style.transformOrigin = 'center center';
+            bfiLoaded = false; 
+            bfiThumbnailImg.onload = () => {
+                bfiNaturalWidth = bfiThumbnailImg.naturalWidth;
+                bfiNaturalHeight = bfiThumbnailImg.naturalHeight;
+                
+                console.log("BFI image loaded. Actual natural dimensions: W=", bfiNaturalWidth, "H=", bfiNaturalHeight);
+
+                if (bfiNaturalWidth === 0 || bfiNaturalHeight === 0) {
+                    console.warn("BFI image loaded but natural dimensions from element are zero. Using placeholder logic.");
+                    handleBfiLoadError(); 
+                    return;
+                }
+                bfiLoaded = true;
+                
+                // Now that BFI is loaded and dimensions are known, initialize the BFI OpenLayers map.
+                // It will be used for both thumbnail and fullscreen views.
+                initializeBFIMap();
+
+                placeTestMarkers();
+                updateBFIViewRectangle();
+            };
+            bfiThumbnailImg.onerror = handleBfiLoadError; 
+        }
+
+        function handleBfiLoadError() {
+             console.error("Failed to load BFI image or invalid dimensions (path: " + bfiImageUrl + "). Using placeholder.");
+            if(bfiViewRect) bfiViewRect.style.display = 'none';
+            if (bfiThumbOverlay) bfiThumbOverlay.querySelectorAll('.test-marker-bfi').forEach(m => m.remove());
+
+            bfiThumbnailImg.src = "https://via.placeholder.com/300x250.png?text=BFI+Error";
+            bfiThumbnailImg.onload = () => { 
+                bfiNaturalWidth = 300; 
+                bfiNaturalHeight = 250;
+                console.log("BFI placeholder loaded. Natural Dims set to: W=", bfiNaturalWidth, "H=", bfiNaturalHeight);
+                bfiLoaded = true; 
+                placeTestMarkers(); 
+                updateBFIViewRectangle();
+            };
+            bfiThumbnailImg.onerror = () => { 
+                console.error("CRITICAL: Failed to load even the placeholder BFI image. BFI functionality will be broken.");
+                bfiLoaded = false; 
+            }
+        }
+        
+        function placeTestMarkers() {
+            if (!bfiLoaded || !olMap || !H_jp2_to_bfi || !jp2TestMarkerLayer) {
+                return;
+            }
+            const jp2MarkerSource = jp2TestMarkerLayer.getSource();
+            jp2MarkerSource.clear();
+            bfiThumbOverlay.querySelectorAll('.test-marker-bfi').forEach(m => m.remove());
+            if (bfiTestMarkerLayer && bfiTestMarkerLayer.getSource()) {
+                bfiTestMarkerLayer.getSource().clear();
+            }
+            if (!testPointsJP2 || testPointsJP2.length === 0) {
+                return;
+            }
+
+            testPointsJP2.forEach(jp2Point => {
+                drawMarkerOnJP2(jp2Point.x, jp2Point.y, false); 
+                const bfiCoord = applyHomography([jp2Point.x, jp2Point.y], H_jp2_to_bfi);
+                if (bfiCoord) { 
+                    // If the BFI OL map is ready, draw markers on it. Otherwise, fallback to DOM markers.
+                    if (bfiOlMap && bfiTestMarkerLayer) {
+                        drawMarkerOnBFIOlMap(bfiCoord[0], bfiCoord[1], false);
+                    } else {
+                        drawOnBFIOverlay(bfiCoord[0], bfiCoord[1], true); 
+                    }
+                }
+            });
+        }
+
+        function getJP2CoordsFromBFInat(bfiX_nat, bfiY_nat) {
+            if (!H_bfi_to_jp2 || bfiX_nat == null || bfiY_nat == null) return null;
+            return applyHomography([bfiX_nat, bfiY_nat], H_bfi_to_jp2);
+        }
+
+        function setJP2ViewCenterFromImageCoords(jp2_coords_img) {
+            if (jp2_coords_img && olMap && view) {
+                const targetOlX = jp2_coords_img[0];
+                const targetOlY = -jp2_coords_img[1];
+                view.setCenter([targetOlX, targetOlY]);
+            }
+        }
+
+        let isSplitView = false;
+
+        function toggleSplitView() {
+            isSplitView = !isSplitView;
+
+            if (isSplitView) {
+                // Split view mode
+                document.getElementById('splitViewBtn').textContent = 'Exit Split View';
+                switchViewBtn.style.display = 'none';
+
+                // JP2 takes left half
+                mapElement.classList.add('split-left');
+                mapElement.classList.remove('thumbnail-mode'); // Ensure no conflict
+
+                // BFI takes right half
+                bfiThumbnailContainer.classList.add('split-right');
+                bfiThumbnailContainer.classList.add('fullscreen-mode');
+
+                mapElement.style.position = 'absolute';
+                mapElement.style.top = '0';
+                mapElement.style.left = '0';
+                mapElement.style.width = '50%';
+                mapElement.style.height = '100%';
+
+                bfiThumbnailContainer.style.position = 'absolute';
+                bfiThumbnailContainer.style.top = '0';
+                bfiThumbnailContainer.style.left = '50%';
+                bfiThumbnailContainer.style.width = '50%';
+                bfiThumbnailContainer.style.height = '100%';
+
+                bfiThumbOverlay.style.pointerEvents = 'none'; // Disable overlay for OL map interactions
+                document.getElementById('bfi_ol_map').style.display = 'block';
+                document.getElementById('bfi_thumbnail_img').style.display = 'none';
+                initializeBFIMap();
+
+                // Ensure JP2 map updates its size and then zooms in
+                requestAnimationFrame(() => {
+                    if (olMap) {
+                        olMap.updateSize(); // Update size to new 50% width
+                        if (view && view.getProjection() && view.getProjection().getExtent()) {
+                            try {
+                                // Fit the JP2 map to its new container size
+                                view.fit(view.getProjection().getExtent(), {
+                                    size: olMap.getSize(),
+                                    constrainResolution: false,
+                                    nearest: true,
+                                    duration: 0 // No animation for initial fit
+                                });
+                                // After fitting, get the current resolution and apply the specified zoom factor for JP2.
+                                // Note: Dividing by a number < 1 (like 0.9) will increase the resolution, causing a zoom OUT.
+                                // If a zoom IN is desired, the factor should be > 1 (e.g., currentResolution / 1.1)
+                                const currentResolution = view.getResolution(); // This is for JP2
+                                view.setResolution(currentResolution / 0.9);
+
+                                // Apply the same logic for BFI map
+                                if (bfiOlMap && bfiView && bfiView.getProjection() && bfiView.getProjection().getExtent()) {
+                                    try {
+                                        bfiOlMap.updateSize(); // Update BFI map size to new 50% width
+                                        bfiView.fit(bfiView.getProjection().getExtent(), {
+                                            size: bfiOlMap.getSize(),
+                                            constrainResolution: false,
+                                            nearest: true,
+                                            duration: 0
+                                        });
+                                        const currentBfiResolution = bfiView.getResolution();
+                                        bfiView.setResolution(currentBfiResolution / 1.5); // Apply same factor for BFI
+                                    } catch (e) { console.error("Error fitting or zooming BFI view in split mode:", e); }
+                                }
+                            } catch (e) { console.error("Error fitting or zooming JP2 view in split mode:", e); }
+                        }
+                    }
+                });
+
+            } else {
+                // Back to BFI fullscreen
+                document.getElementById('splitViewBtn').textContent = 'Split View';
+                switchViewBtn.style.display = 'inline-block';
+
+                mapElement.style = '';
+                bfiThumbnailContainer.style = '';
+                
+                mapElement.classList.remove('split-left');
+                bfiThumbnailContainer.classList.remove('split-right');
+
+                mapElement.classList.add('thumbnail-mode');
+                bfiThumbnailContainer.classList.add('fullscreen-mode');
+
+                // Revert to interactive BFI map, not the static image
+                document.getElementById('bfi_ol_map').style.display = 'block';
+                document.getElementById('bfi_thumbnail_img').style.display = 'none';
+                bfiThumbOverlay.style.pointerEvents = 'none'; // Keep overlay disabled for OL map
+                // Optionally, reset JP2 zoom when exiting split view if desired,
+                // but the request only specified increasing it in split mode.
+                // if (olMap && view) {
+                //     view.setResolution(view.getResolution() * 1.2); // Zoom out by a factor of 1.2
+                // }
+                if (bfiOlMap) bfiOlMap.updateSize(); // Ensure BFI map updates its size
+            }
+
+            if (olMap) olMap.updateSize();
+        }
+
+ 
+
+    function initializeBFIMap() {
+        // Ensure natural dimensions are available before initializing the map
+        if (!bfiLoaded || bfiNaturalWidth === 0 || bfiNaturalHeight === 0) {
+            console.warn("BFI image not loaded or dimensions not available yet. Cannot initialize BFI OpenLayers map.");
+            return;
+        }
+
+        if (bfiOlMap) {
+            console.log('bfiOlMap already initialized, updating size');
+            bfiOlMap.updateSize();
+            // Re-add test markers if they were cleared or not present
+            placeTestMarkers(); // Call the unified placeTestMarkers
+            return;
+        }
+
+        const imageUrl = bfiImageUrl;
+        const imgWidth = bfiNaturalWidth; // Use actual natural width
+        const imgHeight = bfiNaturalHeight; // Use actual natural height
+        const extent = [0, 0, imgWidth, imgHeight];
+
+        // Define a pixel projection for the BFI image
+        const pixelProjectionBFI = new ol.proj.Projection({
+            code: 'pixel-coords-bfi', // Unique code for BFI pixel projection
+            units: 'pixels',
+            extent: extent
+        });
+
+        const imageLayer = new ol.layer.Image({
+            source: new ol.source.ImageStatic({
+                url: imageUrl,
+                imageExtent: extent,
+                projection: pixelProjectionBFI // Use the defined pixel projection
+            })
+        });
+
+        // Create marker layers for BFI, similar to JP2
+        bfiTestMarkerLayer = new ol.layer.Vector({
+            source: new ol.source.Vector(),
+            style: new ol.style.Style({
+                image: new ol.style.Circle({
+                    radius: 7,
+                    fill: new ol.style.Fill({color: 'orange'}), // Different color for BFI markers
+                    stroke: new ol.style.Stroke({color: 'darkorange', width: 2})
+                })
+            }),
+            zIndex: 10
+        });
+        bfiHoverMarkerLayer = new ol.layer.Vector({
+            source: new ol.source.Vector(),
+            style: new ol.style.Style({
+                image: new ol.style.Circle({
+                    radius: 5,
+                    fill: new ol.style.Fill({color: 'rgba(0, 0, 255, 0.8)'}), // Blue for BFI hover
+                    stroke: new ol.style.Stroke({color: 'darkblue', width: 1})
+                })
+            }),
+            zIndex: 11
+        });
+
+        // Layer for the JP2 view rectangle
+        bfiViewRectLayer = new ol.layer.Vector({
+            source: new ol.source.Vector(),
+            style: new ol.style.Style({
+                stroke: new ol.style.Stroke({
+                    color: 'rgba(255, 0, 0, 0.8)',
+                    width: 2
+                }),
+                fill: new ol.style.Fill({
+                    color: 'rgba(255, 0, 0, 0.1)'
+                })
+            })
+        });
+
+        bfiView = new ol.View({
+            projection: pixelProjectionBFI, // Use the BFI pixel projection
+            center: [imgWidth / 2, imgHeight / 2],
+            zoom: 0, // Start at a low zoom to see the whole image
+            maxZoom: 10, // Adjust as needed
+            minZoom: 0,
+            rotation: (bfiCssRotationDeg * Math.PI / 180) // Apply the BFI image's rotation
+        });
+
+        bfiOlMap = new ol.Map({
+            layers: [imageLayer, bfiViewRectLayer, bfiTestMarkerLayer, bfiHoverMarkerLayer], // Add layers
+            target: 'bfi_ol_map', // Target element for the BFI OpenLayers map
+            view: bfiView,
+            controls: ol.control.defaults({ attribution: false, rotate: false, zoom: false })
+                            .extend([new ol.control.ZoomSlider()]),
+            loadTilesWhileAnimating: true,
+            loadTilesWhileInteracting: true
+        });
+
+        try {
+            if (bfiView.getProjection() && bfiView.getProjection().getExtent()) {
+                bfiView.fit(bfiView.getProjection().getExtent(), { size: bfiOlMap.getSize(), constrainResolution: false, nearest: true });
+            }
+        }
+        catch (e) { console.error("Error fitting BFI view:", e); }
+
+        // Interaction to drag the view rectangle and pan the JP2 map
+        const translate = new ol.interaction.Translate({
+            layers: [bfiViewRectLayer]
+        });
+        translate.on('translateend', function(evt) {
+            const newPolygon = evt.features.getArray()[0].getGeometry();
+            const newCenterBfiOl = ol.extent.getCenter(newPolygon.getExtent());
+            
+            // Convert back to natural image coordinates (y-down)
+            const newCenterBfiNat = [newCenterBfiOl[0], bfiNaturalHeight - newCenterBfiOl[1]];
+
+            const newCenterJp2 = getJP2CoordsFromBFInat(newCenterBfiNat[0], newCenterBfiNat[1]);
+            if (newCenterJp2) {
+                setJP2ViewCenterFromImageCoords(newCenterJp2);
+            }
+        });
+        bfiOlMap.addInteraction(translate);
+
+        // Re-enable map drag pan for direct BFI map panning.
+        // The ol.interaction.Translate on bfiViewRectLayer will still handle dragging the rectangle.
+        // bfiOlMap.getInteractions().forEach(function(interaction) {
+        //     if (interaction instanceof ol.interaction.DragPan) {
+        //         interaction.setActive(false); // Commented out to enable dragging
+        //     }
+        // });
+
+        // Disable map zoom on scroll, we'll handle it manually to zoom JP2
+        bfiOlMap.getInteractions().forEach(function(interaction) {
+            if (interaction instanceof ol.interaction.MouseWheelZoom) {
+                interaction.setActive(false);
+            }
+        });
+
+        // Add event listeners for BFI map interactions
+        bfiOlMap.on('pointermove', function(event) {
+            if (event.dragging || !H_bfi_to_jp2) {
+                hideHoverMarkerOnJP2();
+                if (bfiHoverMarkerLayer && bfiHoverMarkerLayer.getSource()) {
+                    bfiHoverMarkerLayer.getSource().clear();
+                }
+                sendCoordinatesToParent(null, null, null, null, 'live_tracking');
+                return;
+            }
+            try {
+                const ol_bfiCoord = bfiOlMap.getEventCoordinate(event.originalEvent);
+                if (ol_bfiCoord) {
+                    const bfiX_for_H = ol_bfiCoord[0];
+                    const bfiY_for_H = bfiNaturalHeight - ol_bfiCoord[1]; // Convert from OL y-up to natural y-down
+
+                    coordinatesDisplay.textContent = `BFI Mouse: X=${Math.round(bfiX_for_H)}, Y=${Math.round(bfiY_for_H)} (Z: ${bfiView.getZoom().toFixed(2)})`;
+
+                    drawMarkerOnBFIOlMap(bfiX_for_H, bfiY_for_H, true);
+
+                    if (bfiX_for_H < 0 || bfiX_for_H > imgWidth || bfiY_for_H < 0 || bfiY_for_H > imgHeight) {
+                        hideHoverMarkerOnJP2();
+                        if (bfiHoverMarkerLayer && bfiHoverMarkerLayer.getSource()) {
+                            bfiHoverMarkerLayer.getSource().clear();
+                        }
+                        sendCoordinatesToParent(null, null, null, null, 'live_tracking');
+                        return;
+                    }
+
+                    const jp2Coord_img = applyHomography([bfiX_for_H, bfiY_for_H], H_bfi_to_jp2);
+                    if (jp2Coord_img) {
+                        drawMarkerOnJP2(jp2Coord_img[0], jp2Coord_img[1], true); // Draw hover marker on JP2 map
+                        sendCoordinatesToParent(
+                            Math.round(jp2Coord_img[0]),
+                            Math.round(jp2Coord_img[1]),
+                            Math.round(bfiX_for_H),
+                            Math.round(bfiY_for_H),
+                            'live_tracking'
+                        );
+                    } else {
+                        hideHoverMarkerOnJP2();
+                        sendCoordinatesToParent(
+                            null,
+                            null,
+                            Math.round(bfiX_for_H),
+                            Math.round(bfiY_for_H),
+                            'live_tracking'
+                        );
+                    }
+                } else {
+                    hideHoverMarkerOnJP2();
+                    if (bfiHoverMarkerLayer && bfiHoverMarkerLayer.getSource()) {
+                        bfiHoverMarkerLayer.getSource().clear();
+                    }
+                    sendCoordinatesToParent(null, null, null, null, 'live_tracking');
+                }
+            } catch (e) {
+                console.error("Error in BFI pointermove:", e);
+                hideHoverMarkerOnJP2();
+                if (bfiHoverMarkerLayer && bfiHoverMarkerLayer.getSource()) {
+                    bfiHoverMarkerLayer.getSource().clear();
+                }
+                sendCoordinatesToParent(null, null, null, null, 'live_tracking');
+            }
+        });
+
+        // Event listener for mouse leaving the BFI map area
+        document.getElementById('bfi_ol_map').addEventListener('mouseleave', function() {
+            hideHoverMarkerOnJP2();
+            if (bfiHoverMarkerLayer && bfiHoverMarkerLayer.getSource()) {
+                bfiHoverMarkerLayer.getSource().clear();
+            }
+            coordinatesDisplay.textContent = "BFI Mouse: N/A"; // Clear BFI mouse display
+            sendCoordinatesToParent(null, null, null, null, 'live_tracking');
+        });
+
+        // Add click handler for BFI map to set JP2 view center
+        bfiOlMap.on('click', function(event) {
+            if (!H_bfi_to_jp2) return;
+            try {
+                const ol_bfiCoord = bfiOlMap.getEventCoordinate(event.originalEvent);
+                if (ol_bfiCoord) {
+                    const bfiX_for_H = ol_bfiCoord[0];
+                    const bfiY_for_H = bfiNaturalHeight - ol_bfiCoord[1]; // Convert from OL y-up to natural y-down
+
+                    const jp2Coord_img = applyHomography([bfiX_for_H, bfiY_for_H], H_bfi_to_jp2);
+                    if (jp2Coord_img) {
+                        setJP2ViewCenterFromImageCoords(jp2Coord_img);
+                        sendCoordinatesToParent(
+                            Math.round(jp2Coord_img[0]),
+                            Math.round(jp2Coord_img[1]),
+                            Math.round(bfiX_for_H),
+                            Math.round(bfiY_for_H),
+                            'coordinate_click'
+                        );
+                    }
+                }
+            } catch (e) {
+                console.error("Error in BFI map click handler:", e);
+            }
+        });
+
+        // Custom wheel handler to zoom the JP2 map
+        bfiOlMap.on('wheel', function(event) {
+            event.preventDefault();
+
+            const bfi_ol_coord = bfiOlMap.getEventCoordinate(event.originalEvent);
+            const bfi_nat_coord = [bfi_ol_coord[0], bfiNaturalHeight - bfi_ol_coord[1]];
+
+            const jp2AnchorImg = getJP2CoordsFromBFInat(bfi_nat_coord[0], bfi_nat_coord[1]);
+            if (!jp2AnchorImg) return;
+
+            const olAnchor = [jp2AnchorImg[0], -jp2AnchorImg[1]];
+
+            const currentResolution = view.getResolution();
+            const zoomFactor = 1.2;
+            let newResolution;
+
+            if (event.originalEvent.deltaY < 0) { // zoom in
+                newResolution = currentResolution / zoomFactor;
+            } else { // zoom out
+                newResolution = currentResolution * zoomFactor;
+            }
+
+            const maxResolution = view.getMaxResolution(); 
+            const minResolution = view.getMinResolution(); 
+            newResolution = Math.max(minResolution, Math.min(maxResolution, newResolution));
+
+            if (Math.abs(newResolution - currentResolution) > 1e-9) { 
+                 view.animate({
+                    resolution: newResolution,
+                    anchor: olAnchor,
+                    duration: 150,
+                    easing: ol.easing.easeOut
+                });
+            }
+
+            // --- BFI Map Zoom ---
+            const currentBfiResolution = bfiView.getResolution();
+            let newBfiResolution;
+
+            if (event.originalEvent.deltaY < 0) { // zoom in
+                newBfiResolution = currentBfiResolution / zoomFactor;
+            } else { // zoom out
+                newBfiResolution = currentBfiResolution * zoomFactor;
+            }
+
+            // Clamp BFI resolution to its min/max allowed values
+            newBfiResolution = Math.max(bfiView.getMinResolution(), Math.min(bfiView.getMaxResolution(), newBfiResolution));
+
+            if (Math.abs(newBfiResolution - currentBfiResolution) > 1e-9) {
+                bfiView.animate({
+                    resolution: newBfiResolution,
+                    anchor: bfi_ol_coord, // Anchor at the mouse position on the BFI map
+                    duration: 150,
+                    easing: ol.easing.easeOut
+                });
+            }
+        });
+
+    // New function to draw markers on the BFI OpenLayers map
+    function drawMarkerOnBFIOlMap(bfiX_img, bfiY_img, isHoverMarker = false) {
+        if (!bfiOlMap) return;
+        const targetLayerSource = isHoverMarker ? bfiHoverMarkerLayer.getSource() : bfiTestMarkerLayer.getSource();
+        if (isHoverMarker) targetLayerSource.clear();
+
+        // Convert from natural image coordinates (y-down) to BFI map projection coordinates (y-up)
+        const feature = new ol.Feature({ geometry: new ol.geom.Point([bfiX_img, bfiNaturalHeight - bfiY_img]) });
+        targetLayerSource.addFeature(feature);
+
+        if (isHoverMarker) {
+            // bfiTargetCoordinatesDisplay.textContent = `BFI Target: X=${bfiX_img.toFixed(0)}, Y=${bfiY_img.toFixed(0)}`;
+        }
+    }
+}
+
+
+        // --- View Mode Toggle ---
+        function toggleViewMode() {
+            jp2IsFullscreen = !jp2IsFullscreen;
+
+            // The BFI view is now always the OpenLayers map.
+            // We just toggle the CSS classes on the containers.
+            document.getElementById('bfi_ol_map').style.display = 'block';
+            document.getElementById('bfi_thumbnail_img').style.display = 'none';
+            bfiThumbOverlay.style.pointerEvents = 'none'; // Overlay is not used for interactions anymore
+
+            if (jp2IsFullscreen) { // Switching to JP2 Fullscreen
+                mapElement.classList.remove('thumbnail-mode');
+                bfiThumbnailContainer.classList.remove('fullscreen-mode');
+                switchViewBtn.textContent = 'View BFI Fullscreen';
+                splitViewBtn.style.display = 'none';
+            } else { // Switching to BFI Fullscreen
+                mapElement.classList.add('thumbnail-mode');
+                bfiThumbnailContainer.classList.add('fullscreen-mode');
+                switchViewBtn.textContent = 'View JP2 Fullscreen';
+                splitViewBtn.style.display = 'inline-block';
+            }
+            
+            // Update sizes and fit views after DOM changes have rendered
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    if (olMap) {
+                        olMap.updateSize();
+                        // Always fit JP2 map to its current container size
+                        if(view && view.getProjection() && view.getProjection().getExtent()) {
+                            try { 
+                                view.fit(view.getProjection().getExtent(), { 
+                                    size: olMap.getSize(), 
+                                    constrainResolution: false, 
+                                    nearest: true,
+                                    duration: 0 
+                                }); 
+                            }
+                            catch (e) { console.error("Error refitting JP2 view:", e); } 
+                        }
+                    }
+                    
+                    if (bfiOlMap) {
+                        bfiOlMap.updateSize();
+                        // Always fit BFI map to its current container size
+                        if (bfiView && bfiView.getProjection() && bfiView.getProjection().getExtent()) {
+                            try {
+                                bfiView.fit(bfiView.getProjection().getExtent(), {
+                                    size: bfiOlMap.getSize(),
+                                    constrainResolution: false,
+                                    nearest: true,
+                                    duration: 0
+                                });
+                                // Apply zoom adjustment for BFI when it goes fullscreen
+                                if (!jp2IsFullscreen) { // Check if BFI is currently fullscreen
+                                    const currentBfiResolution = bfiView.getResolution();
+                                    bfiView.setResolution(currentBfiResolution / 2); // Apply the specified factor (zoom out)
+                                }
+                            }
+                            catch (e) { console.error("Error refitting BFI view:", e); }
+                        }
+                    }
+                    updateBFIViewRectangle();
+                    placeTestMarkers(); 
+                });
+            });
+        }
+        switchViewBtn.addEventListener('click', toggleViewMode);
+
+        // --- Initialization on DOMContentLoaded ---
+        window.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('splitViewBtn').addEventListener('click', toggleSplitView);
+
+            // Set initial view state: JP2 is fullscreen, BFI is an OL thumbnail.
+            // The BFI OL map will be displayed once it's initialized in loadBFIThumbnail.
+            document.getElementById('bfi_ol_map').style.display = 'block';
+            document.getElementById('bfi_thumbnail_img').style.display = 'none';
+            bfiThumbOverlay.style.pointerEvents = 'none';
+
+            // Populate Biosample ID Dropdown
+            if (availableBiosampleIds && availableBiosampleIds.length > 0) {
+                availableBiosampleIds.forEach(id => {
+                    const option = document.createElement('option');
+                    option.value = String(id); // Ensure value is string
+                    option.textContent = String(id);
+                    if (String(id) === String(currentBiosampleId)) {
+                        option.selected = true;
+                    }
+                    biosampleIdSelect.appendChild(option);
+                });
+                 if (availableBiosampleIds.length <= 1) {
+                    // biosampleIdSelect.disabled = true; // Optional: disable if only one choice
+                }
+            } else {
+                 const option = document.createElement('option');
+                 option.textContent = "N/A";
+                 option.disabled = true;
+                 biosampleIdSelect.appendChild(option);
+                 biosampleIdSelect.disabled = true;
+            }
+
+
+            // Populate Slice Number Dropdown
+            if (availableSliceNumbers && availableSliceNumbers.length > 0) {
+                availableSliceNumbers.forEach(num => {
+                    const option = document.createElement('option');
+                    const numStr = String(num); // Ensure value is string
+                    option.value = numStr;
+                    option.textContent = numStr;
+                    if (numStr === String(currentSliceNumber)) {
+                        option.selected = true;
+                    }
+                    sliceNumberSelect.appendChild(option);
+                });
+            } else {
+                const option = document.createElement('option');
+                option.textContent = "No slices";
+                option.disabled = true;
+                sliceNumberSelect.appendChild(option);
+                sliceNumberSelect.disabled = true;
+            }
+
+            // Event Listener for navigation
+            function handleSelectionChange() {
+                const selectedBiosampleId = biosampleIdSelect.value;
+                const selectedSliceNumber = sliceNumberSelect.value;
+
+                if (!selectedBiosampleId || !selectedSliceNumber || sliceNumberSelect.disabled || !viewerUrlTemplate) {
+                    console.warn("Cannot navigate: Invalid selection or missing URL template.");
+                    return;
+                }
+                
+                // Only navigate if selection differs from current
+                if (selectedBiosampleId === String(currentBiosampleId) && selectedSliceNumber === String(currentSliceNumber)) {
+                    return; 
+                }
+                
+                // Construct the new URL to include '/split/' as requested
+                let newUrl = viewerUrlTemplate.replace('/viewer/', '/viewer/split/')
+                                              .replace('__BID__', selectedBiosampleId).replace('__SID__', selectedSliceNumber);
+                window.location.href = newUrl;
+            }
+
+            biosampleIdSelect.addEventListener('change', handleSelectionChange);
+            sliceNumberSelect.addEventListener('change', handleSelectionChange);
+
+
+            // Initialize matrices
+            if (H_jp2_to_bfi) { 
+                 H_bfi_to_jp2 = invertAffineMatrix(H_jp2_to_bfi);
+                if (!H_bfi_to_jp2) {
+                    console.error("Failed to invert H_jp2_to_bfi matrix! BFI interactions depending on this may fail.");
+                    if(bfiViewRect) bfiViewRect.style.display = 'none'; 
+                } else {
+                    // console.log("H_bfi_to_jp2 (inverted matrix):", JSON.parse(JSON.stringify(H_bfi_to_jp2)));
+                }
+            } else {
+                 console.error("H_jp2_to_bfi matrix is not available from backend. BFI interactions will be disabled or incorrect.");
+                 if(bfiViewRect) bfiViewRect.style.display = 'none'; 
+            }
+            
+            if (!bfiImageUrl || (typeof bfiImageUrl === 'string' && bfiImageUrl.startsWith('images_data'))) {
+                // console.warn("bfiImageUrl ('" + bfiImageUrl + "') might be a placeholder or relative path. Ensure it's an absolute or correctly resolved path accessible by the browser.");
+            }
+
+            initializeJP2Map(); 
+            loadBFIThumbnail(); 
+        });
+    </script>
+</body>
+</html>
