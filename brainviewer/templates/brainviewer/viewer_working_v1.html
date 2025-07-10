@@ -237,11 +237,27 @@
         .split-mode-btn.active:hover {
             background-color: #c82333;
         }
+        .header{
+            margin: 0;
+            padding-left: 15px;
+            color: black;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .header p{
+            margin: 0;
+            padding-top: 5px;
+            font-size: 12px;
+            font-weight: bold;
+        }
     </style>
     <script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v5.3.0/build/ol.js"></script>
   </head>
   <body style="height: 100%">
-    <div id="controls">
+    <div class="header">
+        <p>BFI tracker Biosample: {{ current_biosample_id }} Section: {{ current_slice_number }}</p>
+    </div>
+    <div id="controls" style="display: none">
       <div>
         <label for="biosampleIdSelect">Biosample ID:</label>
         <select id="biosampleIdSelect">
@@ -1100,39 +1116,38 @@
               function toggleSplitView() {
                 isSplitView = !isSplitView;
                 const splitModeOverlay = document.getElementById('splitModeOverlay');
-            
+                const splitViewBtn = document.getElementById('splitViewBtn');
+                const switchViewBtn = document.getElementById('switchViewBtn');
+
                 if (isSplitView) {
                     // Split view mode
-                    document.getElementById('splitViewBtn').textContent = 'Exit Split View';
-                    switchViewBtn.style.display = 'none';
-                    
-                    // Show split mode buttons
+                    splitViewBtn.textContent = 'Exit Split View';
+                    splitViewBtn.style.display = 'inline-block';
+                    switchViewBtn.textContent = 'View BFI Fullscreen';
+                    switchViewBtn.style.display = 'inline-block';
+
                     splitModeOverlay.classList.add('active');
-            
-                    // JP2 takes left half (OpenLayers map)
                     mapElement.classList.add('split-left');
                     mapElement.classList.remove('thumbnail-mode');
                     mapElement.style.display = 'block';
-                    
-                    // BFI takes right half
+
                     bfiThumbnailContainer.classList.add('split-right');
                     bfiThumbnailContainer.classList.add('fullscreen-mode');
-            
+
                     mapElement.style.position = 'absolute';
                     mapElement.style.top = '0';
                     mapElement.style.left = '0';
                     mapElement.style.width = '50%';
                     mapElement.style.height = '100%';
-            
+
                     bfiThumbnailContainer.style.position = 'absolute';
                     bfiThumbnailContainer.style.top = '0';
                     bfiThumbnailContainer.style.left = '50%';
                     bfiThumbnailContainer.style.width = '50%';
                     bfiThumbnailContainer.style.height = '100%';
-            
+
                     initializeBFIMap();
-            
-                    // Ensure JP2 map updates its size and then zooms in
+
                     requestAnimationFrame(() => {
                         if (olMap) {
                             olMap.updateSize();
@@ -1146,7 +1161,7 @@
                                     });
                                     const currentResolution = view.getResolution();
                                     view.setResolution(currentResolution / 0.9);
-            
+
                                     if (bfiOlMap && bfiView && bfiView.getProjection() && bfiView.getProjection().getExtent()) {
                                         try {
                                             bfiOlMap.updateSize();
@@ -1164,41 +1179,44 @@
                             }
                         }
                     });
-            
+
                 } else {
-                    // Back to BFI fullscreen
-                    document.getElementById('splitViewBtn').textContent = 'Split View';
+                    // Back to JP2 fullscreen
+                    splitViewBtn.textContent = 'Split View';
+                    switchViewBtn.textContent = 'View BFI Fullscreen';
                     switchViewBtn.style.display = 'inline-block';
-                    
-                    // Hide split mode buttons
+
                     splitModeOverlay.classList.remove('active');
-                    
-                    // Reset to original images
+
                     if (currentJP2ImageType !== 'original') {
                         updateJP2Image('original');
                     }
                     if (currentBFIImageType !== 'original') {
                         updateBFIImage('original');
                     }
-            
+
                     mapElement.style.cssText = '';
                     bfiThumbnailContainer.style.cssText = '';
-            
+
                     mapElement.classList.remove('split-left');
                     bfiThumbnailContainer.classList.remove('split-right');
-            
-                    mapElement.classList.add('thumbnail-mode');
-                    bfiThumbnailContainer.classList.add('fullscreen-mode');
-            
+
+                    mapElement.classList.remove('thumbnail-mode');
+                    bfiThumbnailContainer.classList.remove('fullscreen-mode');
+
+                    mapElement.classList.add('jp2-fullscreen');
+                    bfiThumbnailContainer.classList.remove('fullscreen-mode');
+
                     document.getElementById('bfi_ol_map').style.display = 'block';
                     document.getElementById('bfi_thumbnail_img').style.display = 'none';
                     bfiThumbOverlay.style.pointerEvents = 'none';
-                    
+
                     if (bfiOlMap) bfiOlMap.updateSize();
+                    if (olMap) olMap.updateSize();
                 }
-            
+
                 if (olMap) olMap.updateSize();
-            }
+              }
 
 
           function initializeBFIMap() {
@@ -1726,6 +1744,9 @@
                   if (!bfiImageUrl || (typeof bfiImageUrl === 'string' && bfiImageUrl.startsWith('images_data'))) {
                       // console.warn("bfiImageUrl ('" + bfiImageUrl + "') might be a placeholder or relative path. Ensure it's an absolute or correctly resolved path accessible by the browser.");
                   }
+                  if (!isSplitView) {
+                    toggleSplitView();
+                }
 
                   initializeJP2Map();
                   loadBFIThumbnail();
