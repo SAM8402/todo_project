@@ -196,6 +196,47 @@
       .split-right {
           /* optional: add styles if needed */
       }
+
+      .bfi-thumbnail-container:not(.fullscreen-mode) .bfi-image-viewport,
+      #jp2_map.thumbnail-mode {
+          /* Ensure the map/image fits the container */
+          overflow: hidden;
+      }
+      .split-mode-overlay {
+        position: absolute;
+        top: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 2001;
+        display: none; /* Hidden by default, shown only in split mode */
+        }
+
+        .split-mode-overlay.active {
+            display: flex;
+            gap: 10px;
+        }
+
+        .split-mode-btn {
+            padding: 8px 16px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .split-mode-btn:hover {
+            background-color: #218838;
+        }
+
+        .split-mode-btn.active {
+            background-color: #dc3545;
+        }
+
+        .split-mode-btn.active:hover {
+            background-color: #c82333;
+        }
     </style>
     <script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v5.3.0/build/ol.js"></script>
   </head>
@@ -217,6 +258,10 @@
     <div class="button-stack">
       <button id="switchViewBtn">View BFI Fullscreen</button>
       <button id="splitViewBtn" style="display: none">Split View</button>
+    </div>
+    <div class="split-mode-overlay" id="splitModeOverlay">
+      <button id="nisslBtn" class="split-mode-btn active">Nissl</button>
+      <button id="mriBtn" class="split-mode-btn active">MRI</button>
     </div>
 
     <div class="main-container">
@@ -268,6 +313,10 @@
               const H_jp2_to_bfi = {{ h_jp2_to_bfi | safe}};
               let H_bfi_to_jp2 = null;
 
+
+              const mriImageUrl = {{ mri_image_url | safe}};
+              const nisslImageUrl = {{ nissl_image_url | safe}};
+
               const testPointsJP2 = {{ test_points_jp2  | safe}};
 
               // --- Data for dropdowns and navigation ---
@@ -284,6 +333,9 @@
               console.log("Available Biosample IDs:", availableBiosampleIds);
               console.log("Available Slice Numbers:", availableSliceNumbers);
               console.log("Viewer URL Template:", viewerUrlTemplate);
+
+              console.log("mriImageUrl",mriImageUrl)
+              console.log("nisslImageUrl",nisslImageUrl)
 
 
               // --- DOM Elements ---
@@ -744,7 +796,7 @@
                   //olMap.on('moveend', updateBFIViewRectangle);
                   olMap.on('moveend', function() {
                       updateBFIViewRectangle();
-                      if (syncEnabled && !isUpdatingFromSync && bfiOlMap && bfiView && isSplitView) {
+                      if (syncEnabled && !isUpdatingFromSync && bfiOlMap && bfiView && (isSplitView || jp2IsFullscreen)) {
                           syncBFIToBJP2();
                       }
                   });
@@ -838,6 +890,86 @@
                       view.setCenter([targetOlX, targetOlY]);
                   }
               }
+
+              let currentJP2ImageType = 'original'; // 'original', 'nissl'
+                let currentBFIImageType = 'original'; // 'original', 'mri'
+
+                // Function to update JP2 image source
+                function updateJP2Image(imageType) {
+                if (!olMap || !view) return;
+
+                let newUrl;
+                if (imageType === 'nissl') {
+                newUrl = nisslImageUrl + '?t=' + Date.now();
+                currentJP2ImageType = 'nissl';
+                } else {
+                newUrl = jp2MapUrl + '?t=' + Date.now();
+                currentJP2ImageType = 'original';
+                }
+
+                // Get current view state
+                const currentCenter = view.getCenter();
+                const currentZoom = view.getZoom();
+                const currentRotation = view.getRotation();
+
+                // Create new source with the new URL
+                const newZoomifySource = new ol.source.Zoomify({
+                url: newUrl,
+                size: jp2FullSize,
+                crossOrigin: "anonymous",
+                tierSizeCalculation: 'truncated',
+                imageSmoothing: false,
+                tileSize: 2048
+                });
+
+                // Update the tile layer source
+                const tileLayer = olMap.getLayers().getArray()[0]; // Assuming first layer is the tile layer
+                tileLayer.setSource(newZoomifySource);
+
+                // Restore view state
+                setTimeout(() => {
+                view.setCenter(currentCenter);
+                view.setZoom(currentZoom);
+                view.setRotation(currentRotation);
+                }, 100);
+                }
+
+                // Function to update BFI image source
+                function updateBFIImage(imageType) {
+                if (!bfiOlMap || !bfiView) return;
+
+                let newUrl;
+                if (imageType === 'mri') {
+                newUrl = mriImageUrl;
+                currentBFIImageType = 'mri';
+                } else {
+                newUrl = bfiImageUrl;
+                currentBFIImageType = 'original';
+                }
+
+                // Get current view state
+                const currentCenter = bfiView.getCenter();
+                const currentZoom = bfiView.getZoom();
+                const currentRotation = bfiView.getRotation();
+
+                // Update the image layer source
+                const imageLayer = bfiOlMap.getLayers().getArray()[0]; // Assuming first layer is the image layer
+                const newImageSource = new ol.source.ImageStatic({
+                url: newUrl,
+                imageExtent: [0, 0, bfiNaturalWidth, bfiNaturalHeight],
+                projection: bfiView.getProjection()
+                });
+                imageLayer.setSource(newImageSource);
+
+                // Restore view state
+                setTimeout(() => {
+                bfiView.setCenter(currentCenter);
+                bfiView.setZoom(currentZoom);
+                bfiView.setRotation(currentRotation);
+                }, 100);
+                }
+
+
               let syncEnabled = true; // Add this variable to control sync behavior
               let isUpdatingFromSync = false;
               function syncBFIToBJP2() {
@@ -869,7 +1001,7 @@
                       const bfiImageSize = Math.max(bfiNaturalWidth, bfiNaturalHeight);
                       const sizeRatio = bfiImageSize / jp2ImageSize;
                       const equivalentBfiResolution = jp2Resolution * sizeRatio;
-                      console.log("Equivalent BFI resolution:", equivalentBfiResolution);   
+                      console.log("Equivalent BFI resolution:", equivalentBfiResolution);
 
                       // Constrain resolution to valid range
                       const constrainedResolution = Math.max(
@@ -884,7 +1016,9 @@
                       console.error("Error syncing BFI to JP2:", e);
                   }
 
-                  isUpdatingFromSync = false;
+                  setTimeout(() => {
+                      isUpdatingFromSync = false;
+                  }, 100);
               }
 
               function syncJP2ToBFI() {
@@ -929,7 +1063,9 @@
                       console.error("Error syncing JP2 to BFI:", e);
                   }
 
-                  isUpdatingFromSync = false;
+                  setTimeout(() => {
+                      isUpdatingFromSync = false;
+                  }, 100);
               }
 
               function constrainViewToImageBounds(mapView, imageWidth, imageHeight, isJP2 = false) {
@@ -962,105 +1098,107 @@
               let isSplitView = false;
 
               function toggleSplitView() {
-                  isSplitView = !isSplitView;
-
-                  if (isSplitView) {
-                      // Split view mode
-                      document.getElementById('splitViewBtn').textContent = 'Exit Split View';
-                      switchViewBtn.style.display = 'none';
-
-                      // JP2 takes left half (OpenLayers map)
-                      mapElement.classList.add('split-left');
-                      mapElement.classList.remove('thumbnail-mode'); // Ensure no conflict
-                      mapElement.style.display = 'block'; // Ensure JP2 map is visible
-                      // BFI takes right half
-                      bfiThumbnailContainer.classList.add('split-right');
-                      bfiThumbnailContainer.classList.add('fullscreen-mode');
-
-                      mapElement.style.position = 'absolute';
-                      mapElement.style.top = '0';
-                      mapElement.style.left = '0';
-                      mapElement.style.width = '50%';
-                      mapElement.style.height = '100%';
-
-                      bfiThumbnailContainer.style.position = 'absolute';
-                      bfiThumbnailContainer.style.top = '0';
-                      bfiThumbnailContainer.style.left = '50%';
-                      bfiThumbnailContainer.style.width = '50%';
-                      bfiThumbnailContainer.style.height = '100%';
-
-                      // bfiThumbOverlay.style.pointerEvents = 'none'; // Already set globally
-                      // document.getElementById('bfi_ol_map').style.display = 'block'; // Already set globally
-                      // document.getElementById('bfi_thumbnail_img').style.display = 'none'; // Already set globally
-                      initializeBFIMap();
-
-                      // Ensure JP2 map updates its size and then zooms in
-                      requestAnimationFrame(() => {
-                          if (olMap) {
-                              olMap.updateSize(); // Update size to new 50% width
-                              if (view && view.getProjection() && view.getProjection().getExtent()) {
-                                  try {
-                                      // Fit the JP2 map to its new container size
-                                      view.fit(view.getProjection().getExtent(), {
-                                          size: olMap.getSize(),
-                                          constrainResolution: false,
-                                          nearest: true,
-                                          duration: 0 // No animation for initial fit
-                                      });
-                                      // After fitting, get the current resolution and apply the specified zoom factor for JP2.
-                                      // Note: Dividing by a number < 1 (like 0.9) will increase the resolution, causing a zoom OUT.
-                                      // If a zoom IN is desired, the factor should be > 1 (e.g., currentResolution / 1.1)
-                                      const currentResolution = view.getResolution(); // This is for JP2
-                                      view.setResolution(currentResolution / 0.9);
-
-                                      // Apply the same logic for BFI map
-                                      if (bfiOlMap && bfiView && bfiView.getProjection() && bfiView.getProjection().getExtent()) {
-                                          try {
-                                              bfiOlMap.updateSize(); // Update BFI map size to new 50% width
-                                              bfiView.fit(bfiView.getProjection().getExtent(), {
-                                                  size: bfiOlMap.getSize(),
-                                                  constrainResolution: false,
-                                                  nearest: true,
-                                                  duration: 0
-                                              });
-                                              const currentBfiResolution = bfiView.getResolution();
-                                              bfiView.setResolution(currentBfiResolution / 1.5); // Apply same factor for BFI
-                                          } catch (e) { console.error("Error fitting or zooming BFI view in split mode:", e); }
-                                      }
-                                  } catch (e) { console.error("Error fitting or zooming JP2 view in split mode:", e); }
-                              }
-                          }
-                      });
-
-                  } else {
-                      // Back to BFI fullscreen
-                      document.getElementById('splitViewBtn').textContent = 'Split View';
-                      switchViewBtn.style.display = 'inline-block';
-
-                      mapElement.style.cssText = ''; // Reset inline styles
-                      bfiThumbnailContainer.style.cssText = ''; // Reset inline styles
-
-                      mapElement.classList.remove('split-left');
-                      bfiThumbnailContainer.classList.remove('split-right');
-
-                      mapElement.classList.add('thumbnail-mode'); // JP2 becomes thumbnail
-                      bfiThumbnailContainer.classList.add('fullscreen-mode'); // BFI becomes fullscreen
-
-                      // Revert to interactive BFI map, not the static image
-                      document.getElementById('bfi_ol_map').style.display = 'block';
-                      document.getElementById('bfi_thumbnail_img').style.display = 'none';
-                      bfiThumbOverlay.style.pointerEvents = 'none'; // Keep overlay disabled for OL map
-                      // Optionally, reset JP2 zoom when exiting split view if desired,
-                      // but the request only specified increasing it in split mode.
-                      // if (olMap && view) {
-                      //     view.setResolution(view.getResolution() * 1.2); // Zoom out by a factor of 1.2
-                      // }
-                      if (bfiOlMap) bfiOlMap.updateSize(); // Ensure BFI map updates its size after class changes
-                  }
-
-                  if (olMap) olMap.updateSize();
-              }
-
+                isSplitView = !isSplitView;
+                const splitModeOverlay = document.getElementById('splitModeOverlay');
+            
+                if (isSplitView) {
+                    // Split view mode
+                    document.getElementById('splitViewBtn').textContent = 'Exit Split View';
+                    switchViewBtn.style.display = 'none';
+                    
+                    // Show split mode buttons
+                    splitModeOverlay.classList.add('active');
+            
+                    // JP2 takes left half (OpenLayers map)
+                    mapElement.classList.add('split-left');
+                    mapElement.classList.remove('thumbnail-mode');
+                    mapElement.style.display = 'block';
+                    
+                    // BFI takes right half
+                    bfiThumbnailContainer.classList.add('split-right');
+                    bfiThumbnailContainer.classList.add('fullscreen-mode');
+            
+                    mapElement.style.position = 'absolute';
+                    mapElement.style.top = '0';
+                    mapElement.style.left = '0';
+                    mapElement.style.width = '50%';
+                    mapElement.style.height = '100%';
+            
+                    bfiThumbnailContainer.style.position = 'absolute';
+                    bfiThumbnailContainer.style.top = '0';
+                    bfiThumbnailContainer.style.left = '50%';
+                    bfiThumbnailContainer.style.width = '50%';
+                    bfiThumbnailContainer.style.height = '100%';
+            
+                    initializeBFIMap();
+            
+                    // Ensure JP2 map updates its size and then zooms in
+                    requestAnimationFrame(() => {
+                        if (olMap) {
+                            olMap.updateSize();
+                            if (view && view.getProjection() && view.getProjection().getExtent()) {
+                                try {
+                                    view.fit(view.getProjection().getExtent(), {
+                                        size: olMap.getSize(),
+                                        constrainResolution: false,
+                                        nearest: true,
+                                        duration: 0
+                                    });
+                                    const currentResolution = view.getResolution();
+                                    view.setResolution(currentResolution / 0.9);
+            
+                                    if (bfiOlMap && bfiView && bfiView.getProjection() && bfiView.getProjection().getExtent()) {
+                                        try {
+                                            bfiOlMap.updateSize();
+                                            bfiView.fit(bfiView.getProjection().getExtent(), {
+                                                size: bfiOlMap.getSize(),
+                                                constrainResolution: false,
+                                                nearest: true,
+                                                duration: 0
+                                            });
+                                            const currentBfiResolution = bfiView.getResolution();
+                                            bfiView.setResolution(currentBfiResolution / 1.5);
+                                        } catch (e) { console.error("Error fitting or zooming BFI view in split mode:", e); }
+                                    }
+                                } catch (e) { console.error("Error fitting or zooming JP2 view in split mode:", e); }
+                            }
+                        }
+                    });
+            
+                } else {
+                    // Back to BFI fullscreen
+                    document.getElementById('splitViewBtn').textContent = 'Split View';
+                    switchViewBtn.style.display = 'inline-block';
+                    
+                    // Hide split mode buttons
+                    splitModeOverlay.classList.remove('active');
+                    
+                    // Reset to original images
+                    if (currentJP2ImageType !== 'original') {
+                        updateJP2Image('original');
+                    }
+                    if (currentBFIImageType !== 'original') {
+                        updateBFIImage('original');
+                    }
+            
+                    mapElement.style.cssText = '';
+                    bfiThumbnailContainer.style.cssText = '';
+            
+                    mapElement.classList.remove('split-left');
+                    bfiThumbnailContainer.classList.remove('split-right');
+            
+                    mapElement.classList.add('thumbnail-mode');
+                    bfiThumbnailContainer.classList.add('fullscreen-mode');
+            
+                    document.getElementById('bfi_ol_map').style.display = 'block';
+                    document.getElementById('bfi_thumbnail_img').style.display = 'none';
+                    bfiThumbOverlay.style.pointerEvents = 'none';
+                    
+                    if (bfiOlMap) bfiOlMap.updateSize();
+                }
+            
+                if (olMap) olMap.updateSize();
+            }
 
 
           function initializeBFIMap() {
@@ -1300,7 +1438,7 @@
               });
 
               bfiOlMap.on('moveend', function() {
-                  if (syncEnabled && !isUpdatingFromSync && olMap && view && isSplitView) {
+                  if (syncEnabled && !isUpdatingFromSync && olMap && view && (isSplitView || !jp2IsFullscreen)) {
                       syncJP2ToBFI();
                   }
               });
@@ -1419,13 +1557,12 @@
                       splitViewBtn.style.display = 'inline-block';
                   }
                   // Update sizes and fit views after DOM changes have rendered
-                  // Update sizes and fit views after DOM changes have rendered
                   requestAnimationFrame(() => {
                       requestAnimationFrame(() => {
                           if (olMap) {
                               olMap.updateSize();
                               // Always fit JP2 map to its current container size
-                              if(view && view.getProjection() && view.getProjection().getExtent()) {
+                              if(jp2IsFullscreen && view && view.getProjection() && view.getProjection().getExtent()) {
                                   try {
                                       view.fit(view.getProjection().getExtent(), {
                                           size: olMap.getSize(),
@@ -1441,7 +1578,7 @@
                           if (bfiOlMap) {
                               bfiOlMap.updateSize();
                               // Always fit BFI map to its current container size
-                              if (bfiView && bfiView.getProjection() && bfiView.getProjection().getExtent()) { // Check if BFI view is valid
+                              if (!jp2IsFullscreen && bfiView && bfiView.getProjection() && bfiView.getProjection().getExtent()) { // Check if BFI view is valid
                                   try {
                                       bfiView.fit(bfiView.getProjection().getExtent(), {
                                           size: bfiOlMap.getSize(),
@@ -1542,6 +1679,35 @@
                   biosampleIdSelect.addEventListener('change', handleSelectionChange);
                   sliceNumberSelect.addEventListener('change', handleSelectionChange);
 
+                  document.getElementById('nisslBtn').addEventListener('click', function() {
+                    const btn = this;
+                    if (btn.classList.contains('active')) {
+                        // Switch to Nissl
+                        updateJP2Image('nissl');
+                        btn.textContent = 'Original';
+                        btn.classList.remove('active');
+                    } else {
+                        // Switch back to Original
+                        updateJP2Image('original');
+                        btn.textContent = 'Nissl';
+                        btn.classList.add('active');
+                    }
+                });
+                
+                document.getElementById('mriBtn').addEventListener('click', function() {
+                    const btn = this;
+                    if (btn.classList.contains('active')) {
+                        // Switch to MRI
+                        updateBFIImage('mri');
+                        btn.textContent = 'Original';
+                        btn.classList.remove('active');
+                    } else {
+                        // Switch back to Original
+                        updateBFIImage('original');
+                        btn.textContent = 'MRI';
+                        btn.classList.add('active');
+                    }
+                });
 
                   // Initialize matrices
                   if (H_jp2_to_bfi) {
