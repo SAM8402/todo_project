@@ -1,0 +1,20 @@
+{
+    "1000.jp2": { 
+        "jp2_map_url": "https://apollo2.humanbrain.in/iipsrv/fcgi-bin/iipsrv.fcgi?FIF=/data/storageIIT/humanbrain/analytics/222/NISL/B_222_FB74-SL_334-ST_NISL-SE_1000_compressed.jp2&WID=1024&GAM=1.4&MINMAX=1:0,255&MINMAX=2:0,255&MINMAX=3:0,255&JTL={z},{tileIndex}",
+        "jp2_map_size": [72754, 86284],
+        "jp2_initial_rotation_deg": 90,
+        "H_canvas_to_bfw": [
+            [0.08883783649847089, -0.11447231930001632, 1756.7464425497394],
+            [0.04943543635315602, -0.06370082249012196, 979.2472978004782 ],
+            [5.044259037003915e-05, -6.502914779306231e-05, 1.0 ]
+        ],
+        "H_bfw_to_canvas": [
+            [-4714.931379345802, 51716.97597389505, -42360770.045317106 ],
+            [-8819.64518246986, 49582.45327670382, -33059603.09067581 ],
+            [-0.3357006578620188, 0.6155664478450348, -12.050844208180706]
+        ],
+        "bfw_css_rotation_deg": 64, 
+        "bfw_dims_original": [2076, 3088],
+        "bfi_filename": "bfi-1000.png" 
+    }
+}
