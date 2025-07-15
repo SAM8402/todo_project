@@ -277,7 +277,7 @@
       <button id="switchViewBtn" style="display: none">View BFI Fullscreen</button>
       <button id="splitViewBtn" style="display: none">Split View</button>
     </div>
-    <div class="split-mode-overlay" id="splitModeOverlay" style="display: none">
+    <div class="split-mode-overlay" id="splitModeOverlay" >
       <button id="nisslBtn" class="split-mode-btn active">Nissl</button>
       <button id="mriBtn" class="split-mode-btn active">MRI</button>
     </div>
@@ -333,7 +333,12 @@
 
 
               const mriImageUrl = {{ mri_image_url | safe}};
+              const mriFullSize = {{ mri_full_size | safe}};
+              const mriInitialViewRotationDeg = {{ mri_initial_view_rotation_deg | safe}};
+
               const nisslImageUrl = {{ nissl_image_url | safe}};
+              const nisslFullSize = {{ nissl_full_size | safe}};
+              const nisslInitialViewRotationDeg = {{ nissl_initial_view_rotation_deg | safe}};
 
               const testPointsJP2 = {{ test_points_jp2  | safe}};
 
@@ -910,18 +915,22 @@
               }
 
               let currentJP2ImageType = 'original'; // 'original', 'nissl'
-                let currentBFIImageType = 'original'; // 'original', 'mri'
+              let currentBFIImageType = 'original'; // 'original', 'mri'
 
                 // Function to update JP2 image source
-                function updateJP2Image(imageType) {
+            function updateJP2Image(imageType) {
                 if (!olMap || !view) return;
 
-                let newUrl;
+                let newUrl, newSize, newRotation;
                 if (imageType === 'nissl') {
                 newUrl = nisslImageUrl + '?t=' + Date.now();
+                newSize = nisslFullSize;
+                newRotation = nisslInitialViewRotationDeg * Math.PI / 180;
                 currentJP2ImageType = 'nissl';
                 } else {
                 newUrl = jp2MapUrl + '?t=' + Date.now();
+                newSize = jp2FullSize;
+                newRotation = jp2InitialViewRotationDeg * Math.PI / 180;
                 currentJP2ImageType = 'original';
                 }
 
@@ -929,11 +938,12 @@
                 const currentCenter = view.getCenter();
                 const currentZoom = view.getZoom();
                 const currentRotation = view.getRotation();
+                const currentResolution = view.getResolution();
 
                 // Create new source with the new URL
                 const newZoomifySource = new ol.source.Zoomify({
                 url: newUrl,
-                size: jp2FullSize,
+                size: newSize,
                 crossOrigin: "anonymous",
                 tierSizeCalculation: 'truncated',
                 imageSmoothing: false,
@@ -944,24 +954,47 @@
                 const tileLayer = olMap.getLayers().getArray()[0]; // Assuming first layer is the tile layer
                 tileLayer.setSource(newZoomifySource);
 
+                // Update view extent if size changed
+                const imageExtent = newZoomifySource.getTileGrid().getExtent();
+                view.getProjection().setExtent(imageExtent);
+
                 // Restore view state
                 setTimeout(() => {
-                view.setCenter(currentCenter);
-                view.setZoom(currentZoom);
-                view.setRotation(currentRotation);
-                }, 100);
-                }
+                            if (newSize[0] !== jp2FullSize[0] || newSize[1] !== jp2FullSize[1]) {
+                                // Scale center position based on size ratio
+                                const xRatio = newSize[0] / jp2FullSize[0];
+                                const yRatio = newSize[1] / jp2FullSize[1];
+                                const scaledCenter = [
+                                    currentCenter[0] * xRatio,
+                                    currentCenter[1] * yRatio
+                                ];
+                                view.setCenter(scaledCenter);
+                                
+                                // Adjust resolution based on size ratio
+                                const avgRatio = (xRatio + yRatio) / 2;
+                                view.setResolution(currentResolution / avgRatio);
+                            } else {
+                                view.setCenter(currentCenter);
+                                view.setResolution(currentResolution);
+                            }
+                            view.setRotation(currentRotation);
+                        }, 100);
+                    }
 
                 // Function to update BFI image source
-                function updateBFIImage(imageType) {
+        function updateBFIImage(imageType) {
                 if (!bfiOlMap || !bfiView) return;
 
-                let newUrl;
+                let newUrl, newSize, newRotation;
                 if (imageType === 'mri') {
-                newUrl = mriImageUrl;
+                newUrl = mriImageUrl + '?t=' + Date.now();
+                newSize = mriFullSize;
+                newRotation = mriInitialViewRotationDeg * Math.PI / 180;
                 currentBFIImageType = 'mri';
                 } else {
-                newUrl = bfiImageUrl;
+                newUrl = bfiImageUrl + '?t=' + Date.now();
+                newSize = [bfiNaturalWidth, bfiNaturalHeight];
+                newRotation = bfiCssRotationDeg * Math.PI / 180;
                 currentBFIImageType = 'original';
                 }
 
@@ -969,28 +1002,54 @@
                 const currentCenter = bfiView.getCenter();
                 const currentZoom = bfiView.getZoom();
                 const currentRotation = bfiView.getRotation();
+                const currentResolution = bfiView.getResolution();
 
+                const extent = [0, 0, newSize[0], newSize[1]];
                 // Update the image layer source
                 const imageLayer = bfiOlMap.getLayers().getArray()[0]; // Assuming first layer is the image layer
                 const newImageSource = new ol.source.ImageStatic({
                 url: newUrl,
-                imageExtent: [0, 0, bfiNaturalWidth, bfiNaturalHeight],
+                imageExtent: extent,
                 projection: bfiView.getProjection()
                 });
                 imageLayer.setSource(newImageSource);
 
+                // Update view projection extent
+                bfiView.getProjection().setExtent(extent);
+
                 // Restore view state
-                setTimeout(() => {
-                bfiView.setCenter(currentCenter);
-                bfiView.setZoom(currentZoom);
-                bfiView.setRotation(currentRotation);
+                 setTimeout(() => {
+                    if (newSize[0] !== bfiNaturalWidth || newSize[1] !== bfiNaturalHeight) {
+                        // Scale center position based on size ratio
+                        const xRatio = newSize[0] / bfiNaturalWidth;
+                        const yRatio = newSize[1] / bfiNaturalHeight;
+                        const scaledCenter = [
+                            currentCenter[0] * xRatio,
+                            currentCenter[1] * yRatio
+                        ];
+                        bfiView.setCenter(scaledCenter);
+                        
+                        // Adjust resolution based on size ratio
+                        const avgRatio = (xRatio + yRatio) / 2;
+                        bfiView.setResolution(currentResolution / avgRatio);
+                    } else {
+                        bfiView.setCenter(currentCenter);
+                        bfiView.setResolution(currentResolution);
+                    }
+                    bfiView.setRotation(currentRotation);
+                    
+                    // Update BFI natural dimensions for coordinate transformations
+                    if (imageType === 'mri') {
+                        bfiNaturalWidth = mriFullSize[0];
+                        bfiNaturalHeight = mriFullSize[1];
+                    }
                 }, 100);
-                }
+            }
 
 
-              let syncEnabled = true; // Add this variable to control sync behavior
-              let isUpdatingFromSync = false;
-              function syncBFIToBJP2() {
+            let syncEnabled = true; // Add this variable to control sync behavior
+            let isUpdatingFromSync = false;
+            function syncBFIToBJP2() {
                   if (!bfiOlMap || !bfiView || !olMap || !view || !H_jp2_to_bfi) return;
 
                   isUpdatingFromSync = true;
@@ -1161,8 +1220,8 @@
                                         nearest: true,
                                         duration: 0
                                     });
-                                    const currentResolution = view.getResolution();
-                                    view.setResolution(currentResolution / 0.9);
+                                    // const currentResolution = view.getResolution();
+                                    // view.setResolution(currentResolution / 0.9);
 
                                     if (bfiOlMap && bfiView && bfiView.getProjection() && bfiView.getProjection().getExtent()) {
                                         try {
@@ -1173,8 +1232,8 @@
                                                 nearest: true,
                                                 duration: 0
                                             });
-                                            const currentBfiResolution = bfiView.getResolution();
-                                            bfiView.setResolution(currentBfiResolution / 1.5);
+                                            // const currentBfiResolution = bfiView.getResolution();
+                                            // bfiView.setResolution(currentBfiResolution / 1.5);
                                         } catch (e) { console.error("Error fitting or zooming BFI view in split mode:", e); }
                                     }
                                 } catch (e) { console.error("Error fitting or zooming JP2 view in split mode:", e); }
@@ -1607,10 +1666,12 @@
                                           duration: 0
                                       });
                                       // Apply zoom adjustment for BFI when it goes fullscreen
+                                      /*
                                       if (!jp2IsFullscreen) { // If BFI is now fullscreen (JP2 is thumbnail)
                                           const currentBfiResolution = bfiView.getResolution();
                                           bfiView.setResolution(currentBfiResolution / 1.5); // Apply the specified factor (zoom out)
                                       }
+                                      */
                                   }
                                   catch (e) { console.error("Error refitting BFI view:", e); }
                               }
