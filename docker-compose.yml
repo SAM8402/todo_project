@@ -1,0 +1,14 @@
+services:
+  web:
+    container_name: bfi_viewer
+    build: 
+      context: .
+      dockerfile:  Dockerfile
+    volumes:
+      - ./todo_project:./todo_project
+    restart: always
+    ports:
+      - "${DOCKER_IP}:8000:8000"
+    environment:
+      DJANGO_SETTINGS_MODULE: todo_project.settings
+      DEBUG: "0"
