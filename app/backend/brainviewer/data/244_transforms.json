@@ -1,0 +1,50 @@
+{
+    "1000.jp2": {
+        "jp2_map_url": "https://apollo2.humanbrain.in/iipsrv/fcgi-bin/iipsrv.fcgi?FIF=/path/to/dummy_slice_1000.jp2&JTL={z},{tileIndex}",
+        "jp2_map_size": [
+            80000,
+            60000
+        ],
+        "jp2_initial_rotation_deg": 0,
+        "H_canvas_to_bfw": [
+            [
+                1,
+                0,
+                100
+            ],
+            [
+                0,
+                1,
+                100
+            ],
+            [
+                0,
+                0,
+                1
+            ]
+        ],
+        "H_bfw_to_canvas": [
+            [
+                1,
+                0,
+                -100
+            ],
+            [
+                0,
+                1,
+                -100
+            ],
+            [
+                0,
+                0,
+                1
+            ]
+        ],
+        "bfw_css_rotation_deg": 0,
+        "bfw_dims_original": [
+            2000,
+            3000
+        ],
+        "bfi_filename": "bfi-1000.jpg"
+    }
+}
