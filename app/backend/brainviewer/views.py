@@ -17,6 +17,7 @@ def fetch_brain_viewer_details(biosample_id):
     bfidic = {
         "222": 100,
         "244": 116,
+        "142": 65,
     }
     bfi_value = bfidic.get(str(biosample_id))
     if not bfi_value:
@@ -318,7 +319,7 @@ def get_transformation_data(biosample_id, section_number_str):
 
 
 def get_available_biosample_ids():
-    return ["222", "244"]
+    return ["222", "244","142"]
 
 
 def get_available_slice_numbers_for_biosample(biosample_id):

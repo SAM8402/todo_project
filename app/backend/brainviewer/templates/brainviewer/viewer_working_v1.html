@@ -52,8 +52,8 @@
 
       .bfi-thumbnail-container:not(.fullscreen-mode) .bfi-image-viewport {
           position: absolute;
-          width: 130%;         /* Make the image viewport larger than its container */
-          height: 130%;        /* Make the image viewport larger than its container */
+          width: 160%;         /* Make the image viewport larger than its container */
+          height: 160%;        /* Make the image viewport larger than its container */
           left: 50%;           /* Center horizontally */
           top: 50%;            /* Center vertically */
           transform: translate(-60%, -60%); /* Adjust for centering */
@@ -344,7 +344,7 @@
         <p>BFI tracker Biosample: {{ current_biosample_id }} Section: {{ current_slice_number }}</p>
     </div>
     <div id="controls" >
-        -->
+    -->
     <div id="controls" style="display: none"> 
       <div>
         <label for="biosampleIdSelect">Biosample ID:</label>
@@ -359,7 +359,7 @@
         </select>
       </div>
     </div>
-    <div class="button-stack" style="display: none">
+    <div class="button-stack" >
       <button id="switchViewBtn" style="display: none">View BFI Fullscreen</button>
       <button id="splitViewBtn" style="display: none">Split View</button>
     </div>
@@ -1295,6 +1295,22 @@
 
                     initializeBFIMap();
 
+                    // Apply zoom adjustment for split mode BFI image
+                    setTimeout(() => {
+                        if (bfiOlMap && bfiView && bfiView.getProjection() && bfiView.getProjection().getExtent()) {
+                            try {
+                                bfiView.fit(bfiView.getProjection().getExtent(), {
+                                    size: bfiOlMap.getSize(),
+                                    constrainResolution: false,
+                                    nearest: true,
+                                    duration: 0
+                                });
+                                const currentBfiResolution = bfiView.getResolution();
+                                bfiView.setResolution(currentBfiResolution / 1.5);
+                            } catch (e) { console.error("Error applying BFI zoom in split mode:", e); }
+                        }
+                    }, 100);
+
                     requestAnimationFrame(() => {
                         if (olMap) {
                             olMap.updateSize();
@@ -1318,8 +1334,8 @@
                                                 nearest: true,
                                                 duration: 0
                                             });
-                                            // const currentBfiResolution = bfiView.getResolution();
-                                            // bfiView.setResolution(currentBfiResolution / 1.5);
+                                            const currentBfiResolution = bfiView.getResolution();
+                                            bfiView.setResolution(currentBfiResolution / 1.5);
                                         } catch (e) { console.error("Error fitting or zooming BFI view in split mode:", e); }
                                     }
                                 } catch (e) { console.error("Error fitting or zooming JP2 view in split mode:", e); }
@@ -1378,6 +1394,20 @@
                   bfiOlMap.updateSize();
                   // Re-add test markers if they were cleared or not present
                   placeTestMarkers(); // Call the unified placeTestMarkers
+                  
+                  // Apply zoom adjustment for split mode
+                  if (isSplitView && bfiView && bfiView.getProjection() && bfiView.getProjection().getExtent()) {
+                      try {
+                          bfiView.fit(bfiView.getProjection().getExtent(), {
+                              size: bfiOlMap.getSize(),
+                              constrainResolution: false,
+                              nearest: true,
+                              duration: 0
+                          });
+                          const currentBfiResolution = bfiView.getResolution();
+                          bfiView.setResolution(currentBfiResolution / 1.5);
+                      } catch (e) { console.error("Error applying BFI zoom in split mode:", e); }
+                  }
                   return;
               }
 
@@ -1466,7 +1496,7 @@
                   if (bfiView.getProjection() && bfiView.getProjection().getExtent()) {
                       bfiView.fit(bfiView.getProjection().getExtent(), { size: bfiOlMap.getSize(), constrainResolution: false, nearest: true });
                       const currentResolution = bfiView.getResolution();
-                      bfiView.setResolution(currentResolution / 2);
+                      bfiView.setResolution(currentResolution / 3);
                   } // Fit the BFI map to its container
               }
               catch (e) { console.error("Error fitting BFI view:", e); }
@@ -1752,12 +1782,10 @@
                                           duration: 0
                                       });
                                       // Apply zoom adjustment for BFI when it goes fullscreen
-                                      /*
                                       if (!jp2IsFullscreen) { // If BFI is now fullscreen (JP2 is thumbnail)
                                           const currentBfiResolution = bfiView.getResolution();
-                                          bfiView.setResolution(currentBfiResolution / 1.5); // Apply the specified factor (zoom out)
+                                          bfiView.setResolution(currentBfiResolution / 2.5); // Apply the specified factor (zoom in more)
                                       }
-                                      */
                                   }
                                   catch (e) { console.error("Error refitting BFI view:", e); }
                               }
