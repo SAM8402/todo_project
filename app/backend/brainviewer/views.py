@@ -634,8 +634,8 @@ def viewer_view_split(request, biosample_id, slice_number_str, port_no=10803):
         # bfi_image_url = f"/static/images_data/{biosample_id}/bfi-{slice_number_str}.png"
         # bfi_image_url = f"images_data/{biosample_id}/bfi-{slice_number_str}.png"   # this is not working
         # bfi_image_url = f"http://dgx3.humanbrain.in:10803/images/222/bfi-763.png"
-        # bfi_image_url = f"http://dgx3.humanbrain.in:{port_no}/images/{biosample_id}/bfi-{slice_number_str}.png"
-        bfi_image_url = f"https://apollo2.humanbrain.in/bfiViewerServer/images/{biosample_id}/bfi-{slice_number_str}.png"
+        bfi_image_url = f"http://dgx3.humanbrain.in:{port_no}/images/{biosample_id}/bfi-{slice_number_str}.png"
+        # bfi_image_url = f"https://apollo2.humanbrain.in/bfiViewerServer/images/{biosample_id}/bfi-{slice_number_str}.png"
         logger.info(f"Generated BFI Image URL: {bfi_image_url}")
 
         available_b_ids = get_available_biosample_ids()
@@ -679,6 +679,6 @@ def viewer_view_split(request, biosample_id, slice_number_str, port_no=10803):
         logger.debug(
             f"Data being passed to template for /viewer/{biosample_id}/{slice_number_str}: {template_data}")
 
-        return render(request, 'brainviewer/viewer_working_v1.html', template_data)
+        return render(request, 'brainviewer/split.html', template_data)
         # return render(request, 'brainviewer/no_complete_sync.html', template_data)
         # return render(request, 'brainviewer/test.html', template_data)

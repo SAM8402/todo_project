@@ -281,7 +281,7 @@
         z-index: 2001;
         display: none;
         background: rgba(255, 255, 255, 0.95);
-        padding: 8px;
+        padding: 12px;
         border-radius: 8px;
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
         backdrop-filter: blur(10px);
@@ -290,32 +290,38 @@
 
         .split-mode-overlay.active {
             display: flex;
-            gap: 8px;
+            gap: 20px;
+            align-items: center;
         }
 
-        .split-mode-btn {
-            padding: 8px 16px;
-            background-color: #10B981;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
+        .split-mode-overlay div {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .split-mode-overlay label {
+            font-size: 12px;
             font-weight: 500;
-            transition: all 0.2s ease;
+            color: #374151;
+            margin: 0;
         }
 
-        .split-mode-btn:hover {
-            background-color: #059669;
-            transform: translateY(-1px);
+        .image-selector {
+            padding: 6px 10px;
+            border-radius: 6px;
+            border: 1px solid rgba(0, 0, 0, 0.15);
+            font-size: 13px;
+            background: white;
+            color: #374151;
+            transition: border-color 0.2s ease;
+            min-width: 100px;
         }
 
-        .split-mode-btn.active {
-            background-color: #EF4444;
-        }
-
-        .split-mode-btn.active:hover {
-            background-color: #DC2626;
+        .image-selector:focus {
+            outline: none;
+            border-color: #3B82F6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         }
         .header{
             margin: 0;
@@ -345,7 +351,7 @@
     </div>
     <div id="controls" >
     -->
-    <div id="controls" style="display: none"> 
+    <div id="controls" style="display: none" > 
       <div>
         <label for="biosampleIdSelect">Biosample ID:</label>
         <select id="biosampleIdSelect">
@@ -359,13 +365,25 @@
         </select>
       </div>
     </div>
-    <div class="button-stack" >
+    <div class="button-stack" style="display: none" >
       <button id="switchViewBtn" style="display: none">View BFI Fullscreen</button>
       <button id="splitViewBtn" style="display: none">Split View</button>
     </div>
     <div class="split-mode-overlay" id="splitModeOverlay" >
-      <button id="nisslBtn" class="split-mode-btn active">Nissl</button>
-      <button id="mriBtn" class="split-mode-btn active">MRI</button>
+      <div>
+        <label for="jp2ImageSelect">Image:</label>
+        <select id="jp2ImageSelect" class="image-selector">
+          <option value="original">Nissl</option>
+          <option value="nissl">Hae</option>
+        </select>
+      </div>
+      <div>
+        <label for="bfiImageSelect">Image:</label>
+        <select id="bfiImageSelect" class="image-selector">
+          <option value="original">BFI</option>
+          <option value="mri">MRI</option>
+        </select>
+      </div>
     </div>
 
     <div class="main-container">
@@ -857,7 +875,8 @@
                                   drawMarkerOnBFIOlMap(bfiCoord_nat[0], bfiCoord_nat[1], true);
                               }
 
-                              if (jp2X_for_H < 0 || jp2X_for_H > jp2FullSize[0] || jp2Y_for_H < 0 || jp2Y_for_H > jp2FullSize[1]) {
+                              const currentSize = getCurrentJP2Size();
+                              if (jp2X_for_H < 0 || jp2X_for_H > currentSize[0] || jp2Y_for_H < 0 || jp2Y_for_H > currentSize[1]) {
                                   sendCoordinatesToParent(null, null, null, null, 'live_tracking');
                                   return;
                               }
@@ -1002,6 +1021,11 @@
 
               let currentJP2ImageType = 'original'; // 'original', 'nissl'
               let currentBFIImageType = 'original'; // 'original', 'mri'
+              
+              // Function to get current JP2 image size based on type
+              function getCurrentJP2Size() {
+                  return currentJP2ImageType === 'nissl' ? nisslFullSize : jp2FullSize;
+              }
 
                 // Function to update JP2 image source
             function updateJP2Image(imageType) {
@@ -1046,10 +1070,11 @@
 
                 // Restore view state
                 setTimeout(() => {
-                            if (newSize[0] !== jp2FullSize[0] || newSize[1] !== jp2FullSize[1]) {
+                            const referenceSize = currentJP2ImageType === 'original' ? jp2FullSize : nisslFullSize;
+                            if (newSize[0] !== referenceSize[0] || newSize[1] !== referenceSize[1]) {
                                 // Scale center position based on size ratio
-                                const xRatio = newSize[0] / jp2FullSize[0];
-                                const yRatio = newSize[1] / jp2FullSize[1];
+                                const xRatio = newSize[0] / referenceSize[0];
+                                const yRatio = newSize[1] / referenceSize[1];
                                 const scaledCenter = [
                                     currentCenter[0] * xRatio,
                                     currentCenter[1] * yRatio
@@ -1063,7 +1088,7 @@
                                 view.setCenter(currentCenter);
                                 view.setResolution(currentResolution);
                             }
-                            view.setRotation(currentRotation);
+                            view.setRotation(newRotation);
                         }, 100);
                     }
 
@@ -1160,7 +1185,8 @@
 
                       // Sync zoom
                       const jp2Resolution = view.getResolution();
-                      const jp2ImageSize = Math.max(jp2FullSize[0], jp2FullSize[1]);
+                      const currentSize = getCurrentJP2Size();
+                      const jp2ImageSize = Math.max(currentSize[0], currentSize[1]);
                       const bfiImageSize = Math.max(bfiNaturalWidth, bfiNaturalHeight);
                       const sizeRatio = bfiImageSize / jp2ImageSize;
                       const equivalentBfiResolution = jp2Resolution * sizeRatio;
@@ -1199,9 +1225,10 @@
                           const jp2CenterOL = [jp2CenterImg[0], -jp2CenterImg[1]];
 
                           // Constrain JP2 center to image bounds
+                          const currentSize = getCurrentJP2Size();
                           const constrainedJP2Center = [
-                              Math.max(0, Math.min(jp2FullSize[0], jp2CenterOL[0])),
-                              Math.max(-jp2FullSize[1], Math.min(0, jp2CenterOL[1]))
+                              Math.max(0, Math.min(currentSize[0], jp2CenterOL[0])),
+                              Math.max(-currentSize[1], Math.min(0, jp2CenterOL[1]))
                           ];
 
                           view.setCenter(constrainedJP2Center);
@@ -1209,7 +1236,8 @@
 
                       // Sync zoom
                       const bfiResolution = bfiView.getResolution();
-                      const jp2ImageSize = Math.max(jp2FullSize[0], jp2FullSize[1]);
+                      const currentSize = getCurrentJP2Size();
+                      const jp2ImageSize = Math.max(currentSize[0], currentSize[1]);
                       const bfiImageSize = Math.max(bfiNaturalWidth, bfiNaturalHeight);
                       const sizeRatio = jp2ImageSize / bfiImageSize;
                       const equivalentJP2Resolution = bfiResolution * sizeRatio;
@@ -1295,8 +1323,24 @@
 
                     initializeBFIMap();
 
-                    // Apply zoom adjustment for split mode BFI image
+                    // Apply zoom adjustment for split mode images
                     setTimeout(() => {
+                        // Fit and zoom JP2 image for split view
+                        if (olMap && view && view.getProjection() && view.getProjection().getExtent()) {
+                            try {
+                                olMap.updateSize();
+                                view.fit(view.getProjection().getExtent(), {
+                                    size: olMap.getSize(),
+                                    constrainResolution: false,
+                                    nearest: true,
+                                    duration: 0
+                                });
+                                const currentJP2Resolution = view.getResolution();
+                                view.setResolution(currentJP2Resolution / 0.9);
+                            } catch (e) { console.error("Error applying JP2 zoom in split mode:", e); }
+                        }
+                        
+                        // Fit and zoom BFI image for split view
                         if (bfiOlMap && bfiView && bfiView.getProjection() && bfiView.getProjection().getExtent()) {
                             try {
                                 bfiView.fit(bfiView.getProjection().getExtent(), {
@@ -1306,7 +1350,7 @@
                                     duration: 0
                                 });
                                 const currentBfiResolution = bfiView.getResolution();
-                                bfiView.setResolution(currentBfiResolution / 1.5);
+                                bfiView.setResolution(currentBfiResolution / 1.9);
                             } catch (e) { console.error("Error applying BFI zoom in split mode:", e); }
                         }
                     }, 100);
@@ -1322,8 +1366,9 @@
                                         nearest: true,
                                         duration: 0
                                     });
-                                    // const currentResolution = view.getResolution();
-                                    // view.setResolution(currentResolution / 0.9);
+                                    // Apply zoom adjustment for split mode JP2 image to fit viewport properly
+                                    const currentResolution = view.getResolution();
+                                    view.setResolution(currentResolution / 0.9);
 
                                     if (bfiOlMap && bfiView && bfiView.getProjection() && bfiView.getProjection().getExtent()) {
                                         try {
@@ -1335,7 +1380,7 @@
                                                 duration: 0
                                             });
                                             const currentBfiResolution = bfiView.getResolution();
-                                            bfiView.setResolution(currentBfiResolution / 1.5);
+                                            bfiView.setResolution(currentBfiResolution / 1.9);
                                         } catch (e) { console.error("Error fitting or zooming BFI view in split mode:", e); }
                                     }
                                 } catch (e) { console.error("Error fitting or zooming JP2 view in split mode:", e); }
@@ -1405,7 +1450,7 @@
                               duration: 0
                           });
                           const currentBfiResolution = bfiView.getResolution();
-                          bfiView.setResolution(currentBfiResolution / 1.5);
+                          bfiView.setResolution(currentBfiResolution / 1.9);
                       } catch (e) { console.error("Error applying BFI zoom in split mode:", e); }
                   }
                   return;
@@ -1644,7 +1689,7 @@
 
                   const bfi_ol_coord = bfiOlMap.getEventCoordinate(event.originalEvent);
                   const currentBfiResolution = bfiView.getResolution();
-                  const zoomFactor = 1.2;
+                  const zoomFactor = 0.9;
                   let newBfiResolution;
 
                   if (event.originalEvent.deltaY < 0) {
@@ -1874,33 +1919,21 @@
                   biosampleIdSelect.addEventListener('change', handleSelectionChange);
                   sliceNumberSelect.addEventListener('change', handleSelectionChange);
 
-                  document.getElementById('nisslBtn').addEventListener('click', function() {
-                    const btn = this;
-                    if (btn.classList.contains('active')) {
-                        // Switch to Nissl
+                  document.getElementById('jp2ImageSelect').addEventListener('change', function() {
+                    const selectedValue = this.value;
+                    if (selectedValue === 'nissl') {
                         updateJP2Image('nissl');
-                        btn.textContent = 'Original';
-                        btn.classList.remove('active');
                     } else {
-                        // Switch back to Original
                         updateJP2Image('original');
-                        btn.textContent = 'Nissl';
-                        btn.classList.add('active');
                     }
                 });
                 
-                document.getElementById('mriBtn').addEventListener('click', function() {
-                    const btn = this;
-                    if (btn.classList.contains('active')) {
-                        // Switch to MRI
+                document.getElementById('bfiImageSelect').addEventListener('change', function() {
+                    const selectedValue = this.value;
+                    if (selectedValue === 'mri') {
                         updateBFIImage('mri');
-                        btn.textContent = 'Original';
-                        btn.classList.remove('active');
                     } else {
-                        // Switch back to Original
                         updateBFIImage('original');
-                        btn.textContent = 'MRI';
-                        btn.classList.add('active');
                     }
                 });
 
