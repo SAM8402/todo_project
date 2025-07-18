@@ -341,10 +341,397 @@
             font-weight: 500;
             letter-spacing: 0.5px;
         }
+        
+        /* Vertical Navigation Sidebar */
+        .nav-sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 60px;
+            height: 100vh;
+            background: rgba(30, 30, 30, 0.95);
+            backdrop-filter: blur(10px);
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px 0;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
+        }
+        
+        .nav-button {
+            width: 40px;
+            height: 40px;
+            margin: 10px 0;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .nav-button:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateX(5px);
+        }
+        
+        .nav-button.active {
+            background: #3B82F6;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+        
+        .nav-tooltip {
+            position: absolute;
+            left: 50px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        
+        .nav-button:hover .nav-tooltip {
+            opacity: 1;
+        }
+        
+        /* RGB Control Panel - Slide from left */
+        .rgb-control-panel {
+            position: fixed;
+            left: -350px;
+            top: 0;
+            width: 320px;
+            height: 100vh;
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(15px);
+            z-index: 9999;
+            padding: 80px 20px 20px 80px;
+            box-shadow: 2px 0 20px rgba(0, 0, 0, 0.2);
+            transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow-y: auto;
+            border-right: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        
+        .rgb-control-panel.visible {
+            left: 0;
+        }
+        
+        .rgb-control-panel h3 {
+            margin: 0 0 20px 0;
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            border-bottom: 2px solid #3B82F6;
+            padding-bottom: 10px;
+        }
+        
+        .image-control-group {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(248, 250, 252, 0.8);
+            border-radius: 12px;
+            border: 1px solid rgba(0, 0, 0, 0.05);
+        }
+        
+        .image-control-group h4 {
+            margin: 0 0 15px 0;
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #10B981;
+        }
+        
+        .slider-group {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .slider-group label {
+            min-width: 80px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #555;
+        }
+        
+        .channel-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .channel-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+        }
+        
+        .channel-color.red { background: #EF4444; }
+        .channel-color.green { background: #10B981; }
+        .channel-color.blue { background: #3B82F6; }
+        
+        .opacity-slider {
+            flex: 1;
+            height: 6px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: linear-gradient(to right, #E5E7EB, #9CA3AF);
+            outline: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        
+        .opacity-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #3B82F6;
+            cursor: pointer;
+            border-radius: 50%;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+            transition: all 0.2s ease;
+        }
+        
+        .opacity-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.6);
+        }
+        
+        .opacity-slider::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            background: #3B82F6;
+            cursor: pointer;
+            border-radius: 50%;
+            border: none;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+        }
+        
+        .slider-value {
+            min-width: 45px;
+            text-align: right;
+            font-weight: 600;
+            color: #374151;
+        }
+        
+        /* Reset button for each image group */
+        .reset-button {
+            width: 100%;
+            padding: 8px 16px;
+            background: rgba(107, 114, 128, 0.1);
+            border: 1px solid rgba(107, 114, 128, 0.3);
+            border-radius: 6px;
+            color: #374151;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            margin-top: 10px;
+        }
+        
+        .reset-button:hover {
+            background: rgba(107, 114, 128, 0.2);
+            border-color: rgba(107, 114, 128, 0.5);
+        }
+        
+        /* Gamma correction specific styles */
+        .gamma-control {
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
+            padding-top: 15px;
+            margin-top: 10px;
+        }
+        
+        .gamma-icon {
+            width: 12px;
+            height: 12px;
+            background: linear-gradient(45deg, #8B5CF6, #A78BFA);
+            color: white;
+            border-radius: 2px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: bold;
+        }
+        
+        .gamma-slider {
+            background: linear-gradient(to right, #F3E8FF, #8B5CF6);
+        }
+        
+        .gamma-slider::-webkit-slider-thumb {
+            background: #8B5CF6;
+            box-shadow: 0 2px 8px rgba(139, 92, 246, 0.4);
+        }
+        
+        .gamma-slider::-webkit-slider-thumb:hover {
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.6);
+        }
+        
+        .gamma-slider::-moz-range-thumb {
+            background: #8B5CF6;
+            box-shadow: 0 2px 8px rgba(139, 92, 246, 0.4);
+        }
+        
     </style>
     <script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v5.3.0/build/ol.js"></script>
   </head>
   <body style="height: 100%">
+    <!-- Vertical Navigation Sidebar -->
+    <div class="nav-sidebar">
+      <button class="nav-button" id="rgbControlBtn">
+        🎨
+        <div class="nav-tooltip">RGB Controls</div>
+      </button>
+    </div>
+
+    <!-- RGB Control Panel -->
+    <div class="rgb-control-panel" id="rgbControlPanel">
+      <h3>RGB Opacity Controls</h3>
+      
+      <!-- JP2 Image Controls -->
+      <div class="image-control-group">
+        <h4>
+          <div class="status-indicator"></div>
+          JP2 Image (Nissl/Hae)
+        </h4>
+        <div class="slider-group">
+          <label class="channel-label">
+            <div class="channel-color red"></div>
+            Red:
+          </label>
+          <input type="range" id="jp2-r-slider" min="0" max="100" value="100" class="opacity-slider">
+          <span class="slider-value" id="jp2-r-value">100%</span>
+        </div>
+        <div class="slider-group">
+          <label class="channel-label">
+            <div class="channel-color green"></div>
+            Green:
+          </label>
+          <input type="range" id="jp2-g-slider" min="0" max="100" value="100" class="opacity-slider">
+          <span class="slider-value" id="jp2-g-value">100%</span>
+        </div>
+        <div class="slider-group">
+          <label class="channel-label">
+            <div class="channel-color blue"></div>
+            Blue:
+          </label>
+          <input type="range" id="jp2-b-slider" min="0" max="100" value="100" class="opacity-slider">
+          <span class="slider-value" id="jp2-b-value">100%</span>
+        </div>
+        <div class="slider-group gamma-control">
+          <label class="channel-label">
+            <div class="gamma-icon">γ</div>
+            Gamma:
+          </label>
+          <input type="range" id="jp2-gamma-slider" min="10" max="300" value="100" class="opacity-slider gamma-slider">
+          <span class="slider-value" id="jp2-gamma-value">1.0</span>
+        </div>
+        <button class="reset-button" onclick="resetJP2RGB()">Reset JP2 RGB</button>
+      </div>
+
+      <!-- BFI Image Controls -->
+      <div class="image-control-group">
+        <h4>
+          <div class="status-indicator"></div>
+          BFI Image (BFI/MRI)
+        </h4>
+        <div class="slider-group">
+          <label class="channel-label">
+            <div class="channel-color red"></div>
+            Red:
+          </label>
+          <input type="range" id="bfi-r-slider" min="0" max="100" value="100" class="opacity-slider">
+          <span class="slider-value" id="bfi-r-value">100%</span>
+        </div>
+        <div class="slider-group">
+          <label class="channel-label">
+            <div class="channel-color green"></div>
+            Green:
+          </label>
+          <input type="range" id="bfi-g-slider" min="0" max="100" value="100" class="opacity-slider">
+          <span class="slider-value" id="bfi-g-value">100%</span>
+        </div>
+        <div class="slider-group">
+          <label class="channel-label">
+            <div class="channel-color blue"></div>
+            Blue:
+          </label>
+          <input type="range" id="bfi-b-slider" min="0" max="100" value="100" class="opacity-slider">
+          <span class="slider-value" id="bfi-b-value">100%</span>
+        </div>
+        <div class="slider-group gamma-control">
+          <label class="channel-label">
+            <div class="gamma-icon">γ</div>
+            Gamma:
+          </label>
+          <input type="range" id="bfi-gamma-slider" min="10" max="300" value="100" class="opacity-slider gamma-slider">
+          <span class="slider-value" id="bfi-gamma-value">1.0</span>
+        </div>
+        <button class="reset-button" onclick="resetBFIRGB()">Reset BFI RGB</button>
+      </div>
+
+      <!-- Combined Controls -->
+      <div class="image-control-group">
+        <h4>
+          <div class="status-indicator"></div>
+          Both Images (Synchronized)
+        </h4>
+        <div class="slider-group">
+          <label class="channel-label">
+            <div class="channel-color red"></div>
+            Red:
+          </label>
+          <input type="range" id="combined-r-slider" min="0" max="100" value="100" class="opacity-slider">
+          <span class="slider-value" id="combined-r-value">100%</span>
+        </div>
+        <div class="slider-group">
+          <label class="channel-label">
+            <div class="channel-color green"></div>
+            Green:
+          </label>
+          <input type="range" id="combined-g-slider" min="0" max="100" value="100" class="opacity-slider">
+          <span class="slider-value" id="combined-g-value">100%</span>
+        </div>
+        <div class="slider-group">
+          <label class="channel-label">
+            <div class="channel-color blue"></div>
+            Blue:
+          </label>
+          <input type="range" id="combined-b-slider" min="0" max="100" value="100" class="opacity-slider">
+          <span class="slider-value" id="combined-b-value">100%</span>
+        </div>
+        <div class="slider-group gamma-control">
+          <label class="channel-label">
+            <div class="gamma-icon">γ</div>
+            Gamma:
+          </label>
+          <input type="range" id="combined-gamma-slider" min="10" max="300" value="100" class="opacity-slider gamma-slider">
+          <span class="slider-value" id="combined-gamma-value">1.0</span>
+        </div>
+        <button class="reset-button" onclick="resetAllRGB()">Reset All RGB</button>
+      </div>
+    </div>
+
     <!--
     <div class="header">
         <p>BFI tracker Biosample: {{ current_biosample_id }} Section: {{ current_slice_number }}</p>
@@ -385,6 +772,7 @@
         </select>
       </div>
     </div>
+    
 
     <div class="main-container">
       <div id="jp2_map"></div>
@@ -795,6 +1183,268 @@
                   }
               }
 
+              // RGB Opacity Controls - Define these before map initialization
+              let jp2RGBOpacity = { r: 1, g: 1, b: 1 };
+              let bfiRGBOpacity = { r: 1, g: 1, b: 1 };
+              let jp2Gamma = 1.0;
+              let bfiGamma = 1.0;
+              let jp2RenderInterval, bfiRenderInterval;
+
+              // Function to apply RGB filter to JP2 map
+              function applyJP2RGBFilter() {
+                  if (!olMap) return;
+                  
+                  // Force re-render with color matrix filter
+                  olMap.once('postcompose', function(event) {
+                      const canvas = event.context.canvas;
+                      const ctx = event.context;
+                      
+                      // Apply color matrix filter
+                      ctx.globalCompositeOperation = 'source-over';
+                      
+                      // Create ImageData from canvas
+                      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                      const data = imageData.data;
+                      
+                      // Apply RGB channel opacity and gamma correction
+                      for (let i = 0; i < data.length; i += 4) {
+                          // Normalize to 0-1 range
+                          let r = data[i] / 255;
+                          let g = data[i + 1] / 255;
+                          let b = data[i + 2] / 255;
+                          
+                          // Apply gamma correction
+                          r = Math.pow(r, 1 / jp2Gamma);
+                          g = Math.pow(g, 1 / jp2Gamma);
+                          b = Math.pow(b, 1 / jp2Gamma);
+                          
+                          // Apply RGB channel opacity
+                          r = r * jp2RGBOpacity.r;
+                          g = g * jp2RGBOpacity.g;
+                          b = b * jp2RGBOpacity.b;
+                          
+                          // Convert back to 0-255 range and clamp
+                          data[i] = Math.min(255, Math.max(0, r * 255));
+                          data[i + 1] = Math.min(255, Math.max(0, g * 255));
+                          data[i + 2] = Math.min(255, Math.max(0, b * 255));
+                          // Alpha channel (i + 3) remains unchanged
+                      }
+                      
+                      // Put the modified image data back
+                      ctx.putImageData(imageData, 0, 0);
+                  });
+                  
+                  olMap.render();
+              }
+
+              // Function to apply RGB filter to BFI map
+              function applyBFIRGBFilter() {
+                  console.log('applyBFIRGBFilter called', {
+                      bfiOlMap: !!bfiOlMap,
+                      bfiRGBOpacity,
+                      bfiGamma
+                  });
+                  
+                  if (!bfiOlMap) {
+                      console.log('No bfiOlMap found');
+                      return;
+                  }
+                  
+                  // Try direct method first (most reliable)
+                  try {
+                      applyBFIRGBFilterDirect();
+                      return;
+                  } catch (error) {
+                      console.log('BFI direct method failed, trying postrender:', error);
+                  }
+                  
+                  // Fallback to postrender event
+                  bfiOlMap.once('postrender', function(event) {
+                      try {
+                          const canvas = bfiOlMap.getViewport().querySelector('canvas');
+                          if (!canvas) {
+                              applyBFIRGBFilterCSS();
+                              return;
+                          }
+                          
+                          const ctx = canvas.getContext('2d');
+                          if (!ctx) {
+                              applyBFIRGBFilterCSS();
+                              return;
+                          }
+                          
+                          // Create ImageData from canvas
+                          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                          const data = imageData.data;
+                          
+                          // Apply RGB channel opacity and gamma correction
+                          for (let i = 0; i < data.length; i += 4) {
+                              // Skip transparent pixels
+                              if (data[i + 3] === 0) continue;
+                              
+                              // Normalize to 0-1 range
+                              let r = data[i] / 255;
+                              let g = data[i + 1] / 255;
+                              let b = data[i + 2] / 255;
+                              
+                              // Apply gamma correction
+                              r = Math.pow(r, 1 / bfiGamma);
+                              g = Math.pow(g, 1 / bfiGamma);
+                              b = Math.pow(b, 1 / bfiGamma);
+                              
+                              // Apply RGB channel opacity
+                              r = r * bfiRGBOpacity.r;
+                              g = g * bfiRGBOpacity.g;
+                              b = b * bfiRGBOpacity.b;
+                              
+                              // Convert back to 0-255 range and clamp
+                              data[i] = Math.min(255, Math.max(0, r * 255));
+                              data[i + 1] = Math.min(255, Math.max(0, g * 255));
+                              data[i + 2] = Math.min(255, Math.max(0, b * 255));
+                              // Alpha channel (i + 3) remains unchanged
+                          }
+                          
+                          // Put the modified image data back
+                          ctx.putImageData(imageData, 0, 0);
+                      } catch (error) {
+                          console.log('BFI postrender filter failed, using CSS method:', error);
+                          applyBFIRGBFilterCSS();
+                      }
+                  });
+                  
+                  bfiOlMap.render();
+              }
+              
+              // Alternative CSS-based filter for BFI
+              function applyBFIRGBFilterCSS() {
+                  const bfiMapElement = document.getElementById('bfi_ol_map');
+                  if (!bfiMapElement) return;
+                  
+                  const canvas = bfiMapElement.querySelector('canvas');
+                  if (!canvas) return;
+                  
+                  // Build CSS filter string
+                  let filters = [];
+                  
+                  // Gamma correction using brightness
+                  if (bfiGamma !== 1.0) {
+                      const brightness = Math.pow(0.5, 1 / bfiGamma) * 2;
+                      filters.push(`brightness(${brightness.toFixed(2)})`);
+                  }
+                  
+                  // Overall opacity based on average RGB
+                  const avgOpacity = (bfiRGBOpacity.r + bfiRGBOpacity.g + bfiRGBOpacity.b) / 3;
+                  if (avgOpacity !== 1.0) {
+                      filters.push(`opacity(${avgOpacity.toFixed(2)})`);
+                  }
+                  
+                  // Apply saturation based on RGB variation
+                  const rgbVariation = Math.abs(bfiRGBOpacity.r - bfiRGBOpacity.g) + 
+                                     Math.abs(bfiRGBOpacity.g - bfiRGBOpacity.b) + 
+                                     Math.abs(bfiRGBOpacity.b - bfiRGBOpacity.r);
+                  if (rgbVariation > 0.1) {
+                      const saturation = 1 - rgbVariation * 0.5;
+                      filters.push(`saturate(${saturation.toFixed(2)})`);
+                  }
+                  
+                  // Apply the combined filter
+                  canvas.style.filter = filters.length > 0 ? filters.join(' ') : 'none';
+                  
+                  console.log('Applied BFI CSS filter:', canvas.style.filter);
+              }
+              
+              // More direct method: Try to apply filter immediately after image loads
+              function applyBFIRGBFilterDirect() {
+                  const bfiMapElement = document.getElementById('bfi_ol_map');
+                  if (!bfiMapElement || !bfiOlMap) return;
+                  
+                  // Wait for next frame to ensure rendering is complete
+                  requestAnimationFrame(() => {
+                      const canvas = bfiMapElement.querySelector('canvas');
+                      if (!canvas) {
+                          console.log('BFI canvas not found for direct filter');
+                          return;
+                      }
+                      
+                      try {
+                          const ctx = canvas.getContext('2d');
+                          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                          const data = imageData.data;
+                          
+                          let hasChanges = false;
+                          
+                          // Apply RGB and gamma filters
+                          for (let i = 0; i < data.length; i += 4) {
+                              if (data[i + 3] === 0) continue; // Skip transparent pixels
+                              
+                              // Normalize to 0-1
+                              let r = data[i] / 255;
+                              let g = data[i + 1] / 255;
+                              let b = data[i + 2] / 255;
+                              
+                              // Apply gamma
+                              if (bfiGamma !== 1.0) {
+                                  r = Math.pow(r, 1 / bfiGamma);
+                                  g = Math.pow(g, 1 / bfiGamma);
+                                  b = Math.pow(b, 1 / bfiGamma);
+                                  hasChanges = true;
+                              }
+                              
+                              // Apply RGB opacity
+                              if (bfiRGBOpacity.r !== 1 || bfiRGBOpacity.g !== 1 || bfiRGBOpacity.b !== 1) {
+                                  r *= bfiRGBOpacity.r;
+                                  g *= bfiRGBOpacity.g;
+                                  b *= bfiRGBOpacity.b;
+                                  hasChanges = true;
+                              }
+                              
+                              // Convert back and clamp
+                              data[i] = Math.min(255, Math.max(0, r * 255));
+                              data[i + 1] = Math.min(255, Math.max(0, g * 255));
+                              data[i + 2] = Math.min(255, Math.max(0, b * 255));
+                          }
+                          
+                          if (hasChanges) {
+                              ctx.putImageData(imageData, 0, 0);
+                              console.log('Applied BFI direct filter successfully');
+                          }
+                      } catch (error) {
+                          console.log('BFI direct filter failed, using CSS fallback:', error);
+                          applyBFIRGBFilterCSS();
+                      }
+                  });
+              }
+
+              function startJP2RGBRendering() {
+                  if (jp2RenderInterval) clearInterval(jp2RenderInterval);
+                  jp2RenderInterval = setInterval(() => {
+                      if (olMap && (jp2RGBOpacity.r !== 1 || jp2RGBOpacity.g !== 1 || jp2RGBOpacity.b !== 1 || jp2Gamma !== 1.0)) {
+                          applyJP2RGBFilter();
+                      }
+                  }, 100);
+              }
+
+              function startBFIRGBRendering() {
+                  if (bfiRenderInterval) clearInterval(bfiRenderInterval);
+                  bfiRenderInterval = setInterval(() => {
+                      if (bfiOlMap && (bfiRGBOpacity.r !== 1 || bfiRGBOpacity.g !== 1 || bfiRGBOpacity.b !== 1 || bfiGamma !== 1.0)) {
+                          // Try multiple methods for BFI
+                          try {
+                              applyBFIRGBFilter();
+                          } catch (error) {
+                              console.log('Standard BFI filter failed, trying CSS method:', error);
+                              applyBFIRGBFilterCSS();
+                          }
+                      } else if (bfiOlMap) {
+                          // Reset filters when values are at default
+                          const canvas = document.getElementById('bfi_ol_map')?.querySelector('canvas');
+                          if (canvas) {
+                              canvas.style.filter = 'none';
+                          }
+                      }
+                  }, 100);
+              }
+
               function initializeJP2Map() {
                   const zoomifySource = new ol.source.Zoomify({ url: jp2MapUrl, size: jp2FullSize, crossOrigin: "anonymous", tierSizeCalculation: 'truncated', imageSmoothing: false, tileSize: 2048 });
                   const tileLayer = new ol.layer.Tile({ source: zoomifySource });
@@ -928,6 +1578,9 @@
                           syncBFIToBJP2();
                       }
                   });
+                  
+                  // Start RGB rendering for JP2 if needed
+                  startJP2RGBRendering();
               }
 
               function loadBFIThumbnail() {
@@ -1509,7 +2162,7 @@
                           width: 2
                       }),
                       fill: new ol.style.Fill({
-                          color: 'rgba(255, 0, 0, 0.1)'
+                          color: 'rgba(255, 0, 0, 0)'
                       })
                   }),
                   zIndex: 100 // Ensure the view rectangle is on top for dragging
@@ -1771,6 +2424,9 @@
               */
 
           // New function to draw markers on the BFI OpenLayers map
+          
+          // Start RGB rendering for BFI if needed
+          startBFIRGBRendering();
 
       }
 
@@ -1936,6 +2592,171 @@
                         updateBFIImage('original');
                     }
                 });
+
+                // Navigation and RGB Control Panel Toggle
+                const rgbControlBtn = document.getElementById('rgbControlBtn');
+                const rgbControlPanel = document.getElementById('rgbControlPanel');
+                let isRGBPanelVisible = false;
+
+                rgbControlBtn.addEventListener('click', function() {
+                    isRGBPanelVisible = !isRGBPanelVisible;
+                    
+                    if (isRGBPanelVisible) {
+                        rgbControlPanel.classList.add('visible');
+                        rgbControlBtn.classList.add('active');
+                    } else {
+                        rgbControlPanel.classList.remove('visible');
+                        rgbControlBtn.classList.remove('active');
+                    }
+                });
+
+                // RGB opacity slider event listeners
+                ['r', 'g', 'b'].forEach(channel => {
+                    const jp2Slider = document.getElementById(`jp2-${channel}-slider`);
+                    const jp2ValueDisplay = document.getElementById(`jp2-${channel}-value`);
+                    
+                    jp2Slider.addEventListener('input', function() {
+                        const value = this.value / 100;
+                        jp2RGBOpacity[channel] = value;
+                        jp2ValueDisplay.textContent = this.value + '%';
+                        applyJP2RGBFilter();
+                    });
+
+                    const bfiSlider = document.getElementById(`bfi-${channel}-slider`);
+                    const bfiValueDisplay = document.getElementById(`bfi-${channel}-value`);
+                    
+                    bfiSlider.addEventListener('input', function() {
+                        const value = this.value / 100;
+                        bfiRGBOpacity[channel] = value;
+                        bfiValueDisplay.textContent = this.value + '%';
+                        console.log(`BFI ${channel.toUpperCase()} changed to:`, value);
+                        applyBFIRGBFilter();
+                    });
+
+                    // Combined RGB controls - affects both images simultaneously
+                    const combinedSlider = document.getElementById(`combined-${channel}-slider`);
+                    const combinedValueDisplay = document.getElementById(`combined-${channel}-value`);
+                    
+                    combinedSlider.addEventListener('input', function() {
+                        const value = this.value / 100;
+                        
+                        // Update both JP2 and BFI opacity values
+                        jp2RGBOpacity[channel] = value;
+                        bfiRGBOpacity[channel] = value;
+                        
+                        // Update all displays
+                        combinedValueDisplay.textContent = this.value + '%';
+                        jp2ValueDisplay.textContent = this.value + '%';
+                        bfiValueDisplay.textContent = this.value + '%';
+                        
+                        // Update all sliders
+                        jp2Slider.value = this.value;
+                        bfiSlider.value = this.value;
+                        
+                        // Apply filters to both images
+                        applyJP2RGBFilter();
+                        applyBFIRGBFilter();
+                    });
+                });
+
+                // Gamma slider event listeners
+                const jp2GammaSlider = document.getElementById('jp2-gamma-slider');
+                const jp2GammaValue = document.getElementById('jp2-gamma-value');
+                
+                jp2GammaSlider.addEventListener('input', function() {
+                    jp2Gamma = this.value / 100; // Convert range 10-300 to 0.1-3.0
+                    jp2GammaValue.textContent = jp2Gamma.toFixed(1);
+                    applyJP2RGBFilter();
+                });
+
+                const bfiGammaSlider = document.getElementById('bfi-gamma-slider');
+                const bfiGammaValue = document.getElementById('bfi-gamma-value');
+                
+                bfiGammaSlider.addEventListener('input', function() {
+                    bfiGamma = this.value / 100; // Convert range 10-300 to 0.1-3.0
+                    bfiGammaValue.textContent = bfiGamma.toFixed(1);
+                    console.log('BFI gamma changed to:', bfiGamma);
+                    applyBFIRGBFilter();
+                });
+
+                const combinedGammaSlider = document.getElementById('combined-gamma-slider');
+                const combinedGammaValue = document.getElementById('combined-gamma-value');
+                
+                combinedGammaSlider.addEventListener('input', function() {
+                    const gammaVal = this.value / 100; // Convert range 10-300 to 0.1-3.0
+                    jp2Gamma = gammaVal;
+                    bfiGamma = gammaVal;
+                    
+                    // Update all displays
+                    combinedGammaValue.textContent = gammaVal.toFixed(1);
+                    jp2GammaValue.textContent = gammaVal.toFixed(1);
+                    bfiGammaValue.textContent = gammaVal.toFixed(1);
+                    
+                    // Update all sliders
+                    jp2GammaSlider.value = this.value;
+                    bfiGammaSlider.value = this.value;
+                    
+                    // Apply filters to both images
+                    applyJP2RGBFilter();
+                    applyBFIRGBFilter();
+                });
+
+                // Reset functions
+                window.resetJP2RGB = function() {
+                    ['r', 'g', 'b'].forEach(channel => {
+                        jp2RGBOpacity[channel] = 1;
+                        document.getElementById(`jp2-${channel}-slider`).value = 100;
+                        document.getElementById(`jp2-${channel}-value`).textContent = '100%';
+                    });
+                    // Reset gamma
+                    jp2Gamma = 1.0;
+                    document.getElementById('jp2-gamma-slider').value = 100;
+                    document.getElementById('jp2-gamma-value').textContent = '1.0';
+                    applyJP2RGBFilter();
+                };
+
+                window.resetBFIRGB = function() {
+                    ['r', 'g', 'b'].forEach(channel => {
+                        bfiRGBOpacity[channel] = 1;
+                        document.getElementById(`bfi-${channel}-slider`).value = 100;
+                        document.getElementById(`bfi-${channel}-value`).textContent = '100%';
+                    });
+                    // Reset gamma
+                    bfiGamma = 1.0;
+                    document.getElementById('bfi-gamma-slider').value = 100;
+                    document.getElementById('bfi-gamma-value').textContent = '1.0';
+                    applyBFIRGBFilter();
+                };
+
+                window.resetAllRGB = function() {
+                    ['r', 'g', 'b'].forEach(channel => {
+                        jp2RGBOpacity[channel] = 1;
+                        bfiRGBOpacity[channel] = 1;
+                        
+                        // Update all sliders and values
+                        document.getElementById(`jp2-${channel}-slider`).value = 100;
+                        document.getElementById(`bfi-${channel}-slider`).value = 100;
+                        document.getElementById(`combined-${channel}-slider`).value = 100;
+                        
+                        document.getElementById(`jp2-${channel}-value`).textContent = '100%';
+                        document.getElementById(`bfi-${channel}-value`).textContent = '100%';
+                        document.getElementById(`combined-${channel}-value`).textContent = '100%';
+                    });
+                    
+                    // Reset gamma for both images
+                    jp2Gamma = 1.0;
+                    bfiGamma = 1.0;
+                    document.getElementById('jp2-gamma-slider').value = 100;
+                    document.getElementById('bfi-gamma-slider').value = 100;
+                    document.getElementById('combined-gamma-slider').value = 100;
+                    document.getElementById('jp2-gamma-value').textContent = '1.0';
+                    document.getElementById('bfi-gamma-value').textContent = '1.0';
+                    document.getElementById('combined-gamma-value').textContent = '1.0';
+                    
+                    applyJP2RGBFilter();
+                    applyBFIRGBFilter();
+                };
+
 
                   // Initialize matrices
                   if (H_jp2_to_bfi) {
