@@ -1243,180 +1243,49 @@
 
               // Function to apply RGB filter to BFI map
               function applyBFIRGBFilter() {
-                  console.log('applyBFIRGBFilter called', {
-                      bfiOlMap: !!bfiOlMap,
-                      bfiRGBOpacity,
-                      bfiGamma
-                  });
+                  if (!bfiOlMap) return;
                   
-                  if (!bfiOlMap) {
-                      console.log('No bfiOlMap found');
-                      return;
-                  }
-                  
-                  // Try direct method first (most reliable)
-                  try {
-                      applyBFIRGBFilterDirect();
-                      return;
-                  } catch (error) {
-                      console.log('BFI direct method failed, trying postrender:', error);
-                  }
-                  
-                  // Fallback to postrender event
-                  bfiOlMap.once('postrender', function(event) {
-                      try {
-                          const canvas = bfiOlMap.getViewport().querySelector('canvas');
-                          if (!canvas) {
-                              applyBFIRGBFilterCSS();
-                              return;
-                          }
+                  // Use the same efficient method as JP2 with postcompose event
+                  bfiOlMap.once('postcompose', function(event) {
+                      const canvas = event.context.canvas;
+                      const ctx = event.context;
+                      
+                      // Apply color matrix filter
+                      ctx.globalCompositeOperation = 'source-over';
+                      
+                      // Create ImageData from canvas
+                      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                      const data = imageData.data;
+                      
+                      // Apply RGB channel opacity and gamma correction
+                      for (let i = 0; i < data.length; i += 4) {
+                          // Normalize to 0-1 range
+                          let r = data[i] / 255;
+                          let g = data[i + 1] / 255;
+                          let b = data[i + 2] / 255;
                           
-                          const ctx = canvas.getContext('2d');
-                          if (!ctx) {
-                              applyBFIRGBFilterCSS();
-                              return;
-                          }
+                          // Apply gamma correction
+                          r = Math.pow(r, 1 / bfiGamma);
+                          g = Math.pow(g, 1 / bfiGamma);
+                          b = Math.pow(b, 1 / bfiGamma);
                           
-                          // Create ImageData from canvas
-                          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                          const data = imageData.data;
+                          // Apply RGB channel opacity
+                          r = r * bfiRGBOpacity.r;
+                          g = g * bfiRGBOpacity.g;
+                          b = b * bfiRGBOpacity.b;
                           
-                          // Apply RGB channel opacity and gamma correction
-                          for (let i = 0; i < data.length; i += 4) {
-                              // Skip transparent pixels
-                              if (data[i + 3] === 0) continue;
-                              
-                              // Normalize to 0-1 range
-                              let r = data[i] / 255;
-                              let g = data[i + 1] / 255;
-                              let b = data[i + 2] / 255;
-                              
-                              // Apply gamma correction
-                              r = Math.pow(r, 1 / bfiGamma);
-                              g = Math.pow(g, 1 / bfiGamma);
-                              b = Math.pow(b, 1 / bfiGamma);
-                              
-                              // Apply RGB channel opacity
-                              r = r * bfiRGBOpacity.r;
-                              g = g * bfiRGBOpacity.g;
-                              b = b * bfiRGBOpacity.b;
-                              
-                              // Convert back to 0-255 range and clamp
-                              data[i] = Math.min(255, Math.max(0, r * 255));
-                              data[i + 1] = Math.min(255, Math.max(0, g * 255));
-                              data[i + 2] = Math.min(255, Math.max(0, b * 255));
-                              // Alpha channel (i + 3) remains unchanged
-                          }
-                          
-                          // Put the modified image data back
-                          ctx.putImageData(imageData, 0, 0);
-                      } catch (error) {
-                          console.log('BFI postrender filter failed, using CSS method:', error);
-                          applyBFIRGBFilterCSS();
+                          // Convert back to 0-255 range and clamp
+                          data[i] = Math.min(255, Math.max(0, r * 255));
+                          data[i + 1] = Math.min(255, Math.max(0, g * 255));
+                          data[i + 2] = Math.min(255, Math.max(0, b * 255));
+                          // Alpha channel (i + 3) remains unchanged
                       }
+                      
+                      // Put the modified image data back
+                      ctx.putImageData(imageData, 0, 0);
                   });
                   
                   bfiOlMap.render();
-              }
-              
-              // Alternative CSS-based filter for BFI
-              function applyBFIRGBFilterCSS() {
-                  const bfiMapElement = document.getElementById('bfi_ol_map');
-                  if (!bfiMapElement) return;
-                  
-                  const canvas = bfiMapElement.querySelector('canvas');
-                  if (!canvas) return;
-                  
-                  // Build CSS filter string
-                  let filters = [];
-                  
-                  // Gamma correction using brightness
-                  if (bfiGamma !== 1.0) {
-                      const brightness = Math.pow(0.5, 1 / bfiGamma) * 2;
-                      filters.push(`brightness(${brightness.toFixed(2)})`);
-                  }
-                  
-                  // Overall opacity based on average RGB
-                  const avgOpacity = (bfiRGBOpacity.r + bfiRGBOpacity.g + bfiRGBOpacity.b) / 3;
-                  if (avgOpacity !== 1.0) {
-                      filters.push(`opacity(${avgOpacity.toFixed(2)})`);
-                  }
-                  
-                  // Apply saturation based on RGB variation
-                  const rgbVariation = Math.abs(bfiRGBOpacity.r - bfiRGBOpacity.g) + 
-                                     Math.abs(bfiRGBOpacity.g - bfiRGBOpacity.b) + 
-                                     Math.abs(bfiRGBOpacity.b - bfiRGBOpacity.r);
-                  if (rgbVariation > 0.1) {
-                      const saturation = 1 - rgbVariation * 0.5;
-                      filters.push(`saturate(${saturation.toFixed(2)})`);
-                  }
-                  
-                  // Apply the combined filter
-                  canvas.style.filter = filters.length > 0 ? filters.join(' ') : 'none';
-                  
-                  console.log('Applied BFI CSS filter:', canvas.style.filter);
-              }
-              
-              // More direct method: Try to apply filter immediately after image loads
-              function applyBFIRGBFilterDirect() {
-                  const bfiMapElement = document.getElementById('bfi_ol_map');
-                  if (!bfiMapElement || !bfiOlMap) return;
-                  
-                  // Wait for next frame to ensure rendering is complete
-                  requestAnimationFrame(() => {
-                      const canvas = bfiMapElement.querySelector('canvas');
-                      if (!canvas) {
-                          console.log('BFI canvas not found for direct filter');
-                          return;
-                      }
-                      
-                      try {
-                          const ctx = canvas.getContext('2d');
-                          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                          const data = imageData.data;
-                          
-                          let hasChanges = false;
-                          
-                          // Apply RGB and gamma filters
-                          for (let i = 0; i < data.length; i += 4) {
-                              if (data[i + 3] === 0) continue; // Skip transparent pixels
-                              
-                              // Normalize to 0-1
-                              let r = data[i] / 255;
-                              let g = data[i + 1] / 255;
-                              let b = data[i + 2] / 255;
-                              
-                              // Apply gamma
-                              if (bfiGamma !== 1.0) {
-                                  r = Math.pow(r, 1 / bfiGamma);
-                                  g = Math.pow(g, 1 / bfiGamma);
-                                  b = Math.pow(b, 1 / bfiGamma);
-                                  hasChanges = true;
-                              }
-                              
-                              // Apply RGB opacity
-                              if (bfiRGBOpacity.r !== 1 || bfiRGBOpacity.g !== 1 || bfiRGBOpacity.b !== 1) {
-                                  r *= bfiRGBOpacity.r;
-                                  g *= bfiRGBOpacity.g;
-                                  b *= bfiRGBOpacity.b;
-                                  hasChanges = true;
-                              }
-                              
-                              // Convert back and clamp
-                              data[i] = Math.min(255, Math.max(0, r * 255));
-                              data[i + 1] = Math.min(255, Math.max(0, g * 255));
-                              data[i + 2] = Math.min(255, Math.max(0, b * 255));
-                          }
-                          
-                          if (hasChanges) {
-                              ctx.putImageData(imageData, 0, 0);
-                              console.log('Applied BFI direct filter successfully');
-                          }
-                      } catch (error) {
-                          console.log('BFI direct filter failed, using CSS fallback:', error);
-                          applyBFIRGBFilterCSS();
-                      }
-                  });
               }
 
               function startJP2RGBRendering() {
@@ -1432,19 +1301,7 @@
                   if (bfiRenderInterval) clearInterval(bfiRenderInterval);
                   bfiRenderInterval = setInterval(() => {
                       if (bfiOlMap && (bfiRGBOpacity.r !== 1 || bfiRGBOpacity.g !== 1 || bfiRGBOpacity.b !== 1 || bfiGamma !== 1.0)) {
-                          // Try multiple methods for BFI
-                          try {
-                              applyBFIRGBFilter();
-                          } catch (error) {
-                              console.log('Standard BFI filter failed, trying CSS method:', error);
-                              applyBFIRGBFilterCSS();
-                          }
-                      } else if (bfiOlMap) {
-                          // Reset filters when values are at default
-                          const canvas = document.getElementById('bfi_ol_map')?.querySelector('canvas');
-                          if (canvas) {
-                              canvas.style.filter = 'none';
-                          }
+                          applyBFIRGBFilter();
                       }
                   }, 100);
               }
