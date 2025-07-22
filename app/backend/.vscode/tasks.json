@@ -4,9 +4,19 @@
     "version": "2.0.0",
     "tasks": [
         {
-        "label": "Push to Bitbucket and GitHub",
+        "label": "Push to Both Remotes",
         "type": "shell",
-        "command": "git pushall",
+        "command": "git push origin dev && git push github dev",
+        "group": {
+            "kind": "build",
+            "isDefault": true
+        },
+        "presentation": {
+            "echo": true,
+            "reveal": "always",
+            "focus": false,
+            "panel": "shared"
+        },
         "problemMatcher": []
         }
     ]
