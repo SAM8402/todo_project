@@ -110,6 +110,81 @@ def get_jp2_metadata(biosample_id, section_number):
 
     return filtered
 
+def get_bfiw_metadata(biosample_id, section_number):
+    logger.info(
+        f"Fetching JP2 metadata for biosample: {biosample_id}, section: {section_number}")
+
+    # Fetch JSON data
+    json_data = fetch_brain_viewer_details(biosample_id)
+    if not json_data:
+        logger.error(
+            f"Failed to fetch JSON data for biosample {biosample_id}, section {section_number}")
+        return None
+
+    # Extract BFI White data from the JSON response
+    jp2_data = json_data.get('thumbNail', {}).get('BFI White', [])
+    if not jp2_data:
+        logger.error(
+            f"No 'BFI White' data found in the JSON for biosample {biosample_id}, section {section_number}")
+        return None
+
+    # Try exact match first
+    logger.info(
+        f"Searching for exact match for section {section_number} in BFI White data.")
+    exact_match = next(
+        (item for item in jp2_data if str(
+            item.get('position_index')) == str(section_number)),
+        None
+    )
+
+    match_item = exact_match
+
+    # If exact match not found, find the nearest match by numeric distance
+    if not match_item:
+        logger.info(
+            f"No exact match found for section {section_number}. Searching for the nearest match.")
+        try:
+            section_number_int = int(section_number)
+        except ValueError:
+            logger.error(
+                f"Invalid section_number: {section_number}. It must be an integer.")
+            return None
+
+        valid_items = [item for item in jp2_data if isinstance(
+            item.get('position_index'), int)]
+        if not valid_items:
+            logger.error(
+                f"No valid position_index found in NISSL data for biosample {biosample_id}.")
+            return None
+
+        nearest_item = min(
+            valid_items,
+            key=lambda item: abs(item['position_index'] - section_number_int)
+        )
+        match_item = nearest_item
+        logger.info(
+            f"Nearest match found for section {section_number}: position_index {match_item['position_index']}.")
+
+    # If no match is found, log the failure and return None
+    if not match_item:
+        logger.error(
+            f"Could not find any matching data for section {section_number} in NISSL.")
+        return None
+
+    # Extract only required fields and log the values
+    filtered = {
+        'height': match_item['height'],
+        'width': match_item['width'],
+        'rotation': match_item.get('rigidrotation', 0),
+        'jp2_path_fragment': match_item['jp2Path'],
+        'position_index': match_item['position_index']
+    }
+
+    logger.info(
+        f"Successfully retrieved JP2 metadata for biosample {biosample_id}, section {section_number}: {filtered}")
+
+    return filtered
+
 
 def get_haematoxylin_and_eosin_metadata(biosample_id, section_number):
     logger.info(
@@ -287,6 +362,7 @@ def get_transformation_data(biosample_id, section_number_str):
             if section_data.get("status") == "success":
                 h_matrix = section_data.get("H_canvas_to_bfw")
                 bfi_dims = section_data.get("bfw_dims_original")
+                bfi_rotation = section_data.get("bfw_rotation", 0)
 
                 if not h_matrix:
                     logger.warning(
@@ -469,7 +545,7 @@ def viewer_view(request, biosample_id, slice_number_str, port_no=10803):
     return render(request, 'brainviewer/viewer.html', template_data)
 
 
-def viewer_view_split(request, biosample_id, slice_number_str, port_no=10803):
+def viewer_view_split(request, biosample_id, slice_number_str, port_no=8000):
     logger.info(
         f"Received request for /viewer/{biosample_id}/{slice_number_str}")
 
@@ -563,6 +639,7 @@ def viewer_view_split(request, biosample_id, slice_number_str, port_no=10803):
         return HttpResponse(html_content)
     else:
         jp2_meta = get_jp2_metadata(biosample_id, slice_number_int)
+        bfi_meta = get_bfiw_metadata(biosample_id, slice_number_int)
         hae_meta=get_haematoxylin_and_eosin_metadata(biosample_id, slice_number_int)
         mri_meta=get_mri_metadata(biosample_id, slice_number_int)
         transform_data = get_transformation_data(biosample_id, slice_number_str)
@@ -593,6 +670,7 @@ def viewer_view_split(request, biosample_id, slice_number_str, port_no=10803):
 
         h_jp2_to_bfi = transform_data.get("H_jp2_to_bfi")
         bfi_natural_dims = transform_data.get("bfi_natural_dims")
+        bfi_rotation = transform_data.get("bfi_rotation", 0)
 
         if not h_jp2_to_bfi:
             logger.error(
@@ -634,7 +712,7 @@ def viewer_view_split(request, biosample_id, slice_number_str, port_no=10803):
         # bfi_image_url = f"/static/images_data/{biosample_id}/bfi-{slice_number_str}.png"
         # bfi_image_url = f"images_data/{biosample_id}/bfi-{slice_number_str}.png"   # this is not working
         # bfi_image_url = f"http://dgx3.humanbrain.in:10803/images/222/bfi-763.png"
-        bfi_image_url = f"http://dgx3.humanbrain.in:{port_no}/images/{biosample_id}/bfi-{slice_number_str}.png"
+        bfi_image_url = f"http://dev2imran.humanbrain.in:{port_no}/images/{biosample_id}/bfi-{slice_number_str}.png"
         # bfi_image_url = f"https://apollo2.humanbrain.in/bfiViewerServer/images/{biosample_id}/bfi-{slice_number_str}.png"
         logger.info(f"Generated BFI Image URL: {bfi_image_url}")
 
@@ -659,6 +737,7 @@ def viewer_view_split(request, biosample_id, slice_number_str, port_no=10803):
             "jp2_initial_view_rotation_deg": json.dumps(jp2_meta["rotation"]),
             "bfi_image_url": json.dumps(bfi_image_url),
             "bfi_css_rotation_deg": json.dumps(jp2_meta["rotation"]),
+            # "bfi_css_rotation_deg": json.dumps(bfi_rotation),
             "h_jp2_to_bfi": json.dumps(h_jp2_to_bfi),
             "bfi_natural_width": json.dumps(bfi_w),
             "bfi_natural_height": json.dumps(bfi_h),

@@ -2003,7 +2003,7 @@
                                     duration: 0
                                 });
                                 const currentBfiResolution = bfiView.getResolution();
-                                bfiView.setResolution(currentBfiResolution / 1.9);
+                                bfiView.setResolution(currentBfiResolution / 0.9);
                             } catch (e) { console.error("Error applying BFI zoom in split mode:", e); }
                         }
                     }, 100);
@@ -2033,7 +2033,7 @@
                                                 duration: 0
                                             });
                                             const currentBfiResolution = bfiView.getResolution();
-                                            bfiView.setResolution(currentBfiResolution / 1.9);
+                                            bfiView.setResolution(currentBfiResolution / 0.9);
                                         } catch (e) { console.error("Error fitting or zooming BFI view in split mode:", e); }
                                     }
                                 } catch (e) { console.error("Error fitting or zooming JP2 view in split mode:", e); }
@@ -2103,7 +2103,7 @@
                               duration: 0
                           });
                           const currentBfiResolution = bfiView.getResolution();
-                          bfiView.setResolution(currentBfiResolution / 1.9);
+                          bfiView.setResolution(currentBfiResolution / 0.9);
                       } catch (e) { console.error("Error applying BFI zoom in split mode:", e); }
                   }
                   return;
@@ -2194,7 +2194,7 @@
                   if (bfiView.getProjection() && bfiView.getProjection().getExtent()) {
                       bfiView.fit(bfiView.getProjection().getExtent(), { size: bfiOlMap.getSize(), constrainResolution: false, nearest: true });
                       const currentResolution = bfiView.getResolution();
-                      bfiView.setResolution(currentResolution / 3);
+                      bfiView.setResolution(currentResolution / 0.8);
                   } // Fit the BFI map to its container
               }
               catch (e) { console.error("Error fitting BFI view:", e); }

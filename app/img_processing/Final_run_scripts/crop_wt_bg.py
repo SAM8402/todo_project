@@ -24,7 +24,6 @@ def crop_to_content(image_path, output_path=None, background_threshold=240, edge
         raise ValueError(f"Could not load image: {image_path} - {e}")
 
     width, height = img.size
-    has_alpha = img.mode in ('RGBA', 'LA', 'PA')
     
     # For large images, use downsampling to find bounds efficiently
     max_size = 800  # Reduced for better performance
@@ -36,77 +35,26 @@ def crop_to_content(image_path, output_path=None, background_threshold=240, edge
         
         # Downsample for analysis
         small_img = img.resize((new_width, new_height), Image.LANCZOS)
-    else:
-        # For smaller images, process directly
-        small_img = img
-        scale_factor = 1
-
-    # Handle images with alpha channel differently
-    if has_alpha:
-        # Extract alpha channel for transparency detection
-        if small_img.mode == 'RGBA':
-            r, g, b, a = small_img.split()
-            alpha_array = np.array(a)
-        elif small_img.mode == 'LA':
-            l, a = small_img.split()
-            alpha_array = np.array(a)
-        elif small_img.mode == 'PA':
-            p, a = small_img.split()
-            alpha_array = np.array(a)
-        
-        # For transparent images, content is where alpha > 0
-        content_mask = alpha_array > 0
-        
-        # Also check RGB values for semi-transparent pixels
-        if small_img.mode == 'RGBA':
-            rgb_array = np.array(small_img.convert('RGB'))
-            gray_array = np.dot(rgb_array[...,:3], [0.299, 0.587, 0.114])
-            
-            # For semi-transparent pixels, also check if they're not background color
-            semi_transparent_mask = (alpha_array > 64) & (alpha_array < 255)
-            color_content_mask = gray_array < background_threshold
-            content_mask = content_mask | (semi_transparent_mask & color_content_mask)
-        
-        print(f"Image has alpha channel. Content pixels: {np.sum(content_mask)}")
-    else:
-        # Handle images without alpha - detect black or white backgrounds
         gray = ImageOps.grayscale(small_img)
         gray_array = np.array(gray)
         
-        mean_val = np.mean(gray_array)
-        min_val = np.min(gray_array)
-        max_val = np.max(gray_array)
-        
-        # Check if background is black or white
-        black_pixels = np.sum(gray_array <= 10)  # Nearly black
-        white_pixels = np.sum(gray_array >= 245)  # Nearly white
-        total_pixels = gray_array.size
-        
-        black_percentage = black_pixels / total_pixels
-        white_percentage = white_pixels / total_pixels
-        
-        print(f"Gray stats - min: {min_val}, max: {max_val}, mean: {mean_val:.1f}")
-        print(f"Black pixels: {black_percentage:.1%}, White pixels: {white_percentage:.1%}")
-        
-        if black_percentage > 0.5:  # Mostly black background
-            # Content is anything significantly brighter than black
-            threshold = max(15, min_val + 10)  # At least 15, or min + 10
-            content_mask = gray_array > threshold
-            print(f"Detected black background. Using threshold > {threshold}")
-        elif white_percentage > 0.5:  # Mostly white background
-            # Content is anything significantly darker than white
-            threshold = min(240, max_val - 10)  # At most 240, or max - 10
-            content_mask = gray_array < threshold
-            print(f"Detected white background. Using threshold < {threshold}")
-        else:
-            # Mixed background - use adaptive threshold
-            if mean_val > 200:  # Bright image
-                adaptive_threshold = mean_val - 15
-                content_mask = gray_array < adaptive_threshold
-            else:
-                adaptive_threshold = min(background_threshold, mean_val + 25)
-                content_mask = gray_array < adaptive_threshold
-            print(f"Mixed background. Using threshold < {adaptive_threshold:.1f}")
+    else:
+        # For smaller images, process directly
+        gray = ImageOps.grayscale(img)
+        gray_array = np.array(gray)
+        scale_factor = 1
+
+    # Use adaptive threshold based on image statistics - more conservative
+    mean_val = np.mean(gray_array)
+    if mean_val > 200:  # Bright image
+        adaptive_threshold = mean_val - 15  # Reduced from 30 to 15
+    else:
+        adaptive_threshold = min(background_threshold, mean_val + 25)  # Reduced from 50 to 25
+    
+    print(f"Using threshold: {adaptive_threshold:.1f} (mean: {mean_val:.1f})")
+    
+    # Create content mask
+    content_mask = gray_array < adaptive_threshold
     
     # Remove small noise using morphological operations
     from scipy import ndimage
@@ -148,8 +96,8 @@ def crop_to_content(image_path, output_path=None, background_threshold=240, edge
         top, bottom, left, right = top_small, bottom_small, left_small, right_small
 
     # Add padding (increased to prevent over-cropping)
-    padding_y = max(10, int(0.03 * height))
-    padding_x = max(10, int(0.03 * width))
+    padding_y = max(15, int(0.03 * height))
+    padding_x = max(15, int(0.03 * width))
 
     # Apply padding while staying within image bounds
     left = max(0, left - padding_x)
@@ -157,7 +105,6 @@ def crop_to_content(image_path, output_path=None, background_threshold=240, edge
     top = max(0, top - padding_y)
     bottom = min(height, bottom + padding_y)
 
-    print(f"Image mode: {img.mode}, Has alpha: {has_alpha}")
     print(f"Crop bounds: ({left}, {top}) to ({right}, {bottom})")
     print(f"Original size: {width}x{height}, Cropped size: {right-left}x{bottom-top}")
 
@@ -222,7 +169,7 @@ if __name__ == "__main__":
     #     print(f"Error: {e}")
 
     # Process entire directory - NOW ENABLED
-    input_dir = os.path.join(image_data_dir, "222")
+    input_dir = os.path.join(image_data_dir, "142")
     output_dir = os.path.join(image_data_dir, "cropped")
     crop_images_in_directory(input_dir, output_dir)
 
