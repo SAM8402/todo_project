@@ -602,6 +602,10 @@
         🎨
         <div class="nav-tooltip">RGB Controls</div>
       </button>
+      <button class="nav-button" id="bfiOverlayBtn">
+        🧠
+        <div class="nav-tooltip">BFI Overlay</div>
+      </button>
     </div>
 
     <!-- RGB Control Panel -->
@@ -2609,6 +2613,98 @@
                         rgbControlBtn.classList.remove('active');
                     }
                 });
+
+                // BFI Overlay Toggle
+                const bfiOverlayBtn = document.getElementById('bfiOverlayBtn');
+                let bfiOverlayLayer = null;
+                let isBfiOverlayVisible = false;
+
+                bfiOverlayBtn.addEventListener('click', function() {
+                    console.log('BFI overlay button clicked');
+                    isBfiOverlayVisible = !isBfiOverlayVisible;
+                    
+                    if (isBfiOverlayVisible) {
+                        // Wait a bit if data isn't ready yet
+                        if (!bfiLoaded) {
+                            console.log('BFI not loaded yet, waiting...');
+                            setTimeout(() => showBfiOverlay(), 1000);
+                        } else {
+                            showBfiOverlay();
+                        }
+                        bfiOverlayBtn.classList.add('active');
+                    } else {
+                        hideBfiOverlay();
+                        bfiOverlayBtn.classList.remove('active');
+                    }
+                });
+
+                function showBfiOverlay() {
+                    if (!olMap || !bfiLoaded || !H_jp2_to_bfi || !H_bfi_to_jp2 || !bfiNaturalWidth || !bfiNaturalHeight) {
+                        console.warn('Cannot show BFI overlay: required data not loaded', {
+                            olMap: !!olMap,
+                            bfiLoaded: bfiLoaded,
+                            H_jp2_to_bfi: !!H_jp2_to_bfi,
+                            H_bfi_to_jp2: !!H_bfi_to_jp2,
+                            bfiNaturalWidth: bfiNaturalWidth,
+                            bfiNaturalHeight: bfiNaturalHeight,
+                            bfiImageUrl: bfiImageUrl
+                        });
+                        return;
+                    }
+
+                    // Create BFI overlay layer if it doesn't exist
+                    if (!bfiOverlayLayer) {
+                        console.log('Creating BFI overlay layer with URL:', bfiImageUrl);
+                        
+                        // Use the JP2 map's extent directly for simpler overlay
+                        const jp2Extent = view.getProjection().getExtent();
+                        console.log('JP2 extent:', jp2Extent);
+                        
+                        bfiOverlayLayer = new ol.layer.Image({
+                            source: new ol.source.ImageStatic({
+                                url: bfiImageUrl,
+                                imageExtent: jp2Extent,
+                                projection: view.getProjection()
+                            }),
+                            opacity: 0.5,
+                            zIndex: 999
+                        });
+                        
+                        console.log('BFI overlay layer created with JP2 extent');
+                    }
+
+                    // Clear any existing overlay layers first
+                    const existingLayers = olMap.getLayers().getArray();
+                    existingLayers.forEach(layer => {
+                        if (layer !== bfiOverlayLayer && layer.get('isBfiOverlay')) {
+                            olMap.removeLayer(layer);
+                        }
+                    });
+                    
+                    // Mark this layer as BFI overlay
+                    bfiOverlayLayer.set('isBfiOverlay', true);
+
+                    // Add to JP2 map
+                    console.log('Target map element:', olMap.getTarget());
+                    if (!olMap.getLayers().getArray().includes(bfiOverlayLayer)) {
+                        olMap.addLayer(bfiOverlayLayer);
+                        console.log('BFI overlay added to JP2 map');
+                    }
+                    
+                    bfiOverlayLayer.setVisible(true);
+                    
+                    // Force refresh
+                    olMap.updateSize();
+                    olMap.renderSync();
+                    
+                    console.log('BFI overlay should now be visible on JP2 map');
+                }
+
+                function hideBfiOverlay() {
+                    if (bfiOverlayLayer) {
+                        bfiOverlayLayer.setVisible(false);
+                    }
+                }
 
                 // RGB opacity slider event listeners
                 ['r', 'g', 'b'].forEach(channel => {
