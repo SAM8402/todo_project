@@ -28,6 +28,22 @@
           background-color: #f0f0f0;
           position: relative;
       }
+      
+      /* Smooth transitions for OpenLayers maps */
+      .ol-viewport {
+          transition: transform 0.02s linear !important;
+      }
+      
+      /* Disable transitions during dragging for immediate response */
+      .ol-viewport.ol-dragging {
+          transition: none !important;
+      }
+      
+      /* Improve rendering performance */
+      .ol-layer {
+          image-rendering: optimizeSpeed;
+          image-rendering: -webkit-optimize-contrast;
+      }
 
       /* BFI Thumbnail Styling (when JP2 is fullscreen) */
       .bfi-thumbnail-container:not(.fullscreen-mode) {
@@ -1433,10 +1449,59 @@
                       sendCoordinatesToParent(null, null, null, null, 'live_tracking');
                   });
                   //olMap.on('moveend', updateBFIViewRectangle);
+                  // Add real-time drag sync during pointer drag
+                  olMap.on('pointerdrag', function() {
+                      isDragging = true;
+                      if (syncEnabled && !isUpdatingFromSync && bfiOlMap && bfiView && (isSplitView || jp2IsFullscreen)) {
+                          queueSync(syncBFIToBJP2);
+                      }
+                  });
+                  
+                  // Add movestart for smoother drag initialization
+                  olMap.on('movestart', function() {
+                      isDragging = true;
+                      if (syncEnabled && !isUpdatingFromSync && bfiOlMap && bfiView && (isSplitView || jp2IsFullscreen)) {
+                          queueSync(syncBFIToBJP2);
+                      }
+                  });
+                  
                   olMap.on('moveend', function() {
+                      isDragging = false; // Reset dragging state
                       updateBFIViewRectangle();
                       if (syncEnabled && !isUpdatingFromSync && bfiOlMap && bfiView && (isSplitView || jp2IsFullscreen)) {
-                          syncBFIToBJP2();
+                          queueSync(syncBFIToBJP2);
+                      }
+                  });
+                  
+                  // Add JP2 wheel handler for smooth zoom sync
+                  olMap.on('wheel', function(event) {
+                      event.preventDefault();
+                      
+                      const jp2_ol_coord = olMap.getEventCoordinate(event.originalEvent);
+                      const currentJP2Resolution = view.getResolution();
+                      const zoomFactor = 0.9;
+                      let newJP2Resolution;
+                      
+                      if (event.originalEvent.deltaY < 0) {
+                          newJP2Resolution = currentJP2Resolution / zoomFactor;
+                      } else {
+                          newJP2Resolution = currentJP2Resolution * zoomFactor;
+                      }
+                      
+                      newJP2Resolution = Math.max(view.getMinResolution(), Math.min(view.getMaxResolution(), newJP2Resolution));
+                      
+                      if (Math.abs(newJP2Resolution - currentJP2Resolution) > 1e-9) {
+                          // Use zoom-to-point animation for smooth zooming
+                          view.animate({
+                              resolution: newJP2Resolution,
+                              anchor: jp2_ol_coord,
+                              duration: 0 // Immediate for sync
+                          });
+                          
+                          // Trigger sync immediately after zoom
+                          if (syncEnabled && !isUpdatingFromSync && bfiOlMap && bfiView && (isSplitView || jp2IsFullscreen)) {
+                              queueSync(syncBFIToBJP2);
+                          }
                       }
                   });
                   
@@ -1674,8 +1739,65 @@
 
             let syncEnabled = true; // Add this variable to control sync behavior
             let isUpdatingFromSync = false;
+            let syncQueue = [];
+            let syncAnimationFrame = null;
+            let lastSyncTime = 0;
+            let isDragging = false;
+            const SYNC_THROTTLE_MS = 4; // ~240fps throttling for ultra-smooth drag
+            const DRAG_SYNC_THROTTLE_MS = 2; // Even faster during drag operations
+            
+            function executeSyncQueue() {
+                const now = performance.now();
+                const throttleMs = isDragging ? DRAG_SYNC_THROTTLE_MS : SYNC_THROTTLE_MS;
+                if (syncQueue.length === 0 || (now - lastSyncTime) < throttleMs) {
+                    if (syncQueue.length > 0) {
+                        syncAnimationFrame = requestAnimationFrame(executeSyncQueue);
+                    } else {
+                        syncAnimationFrame = null;
+                    }
+                    return;
+                }
+                
+                // Clear duplicate sync functions to prevent redundant operations
+                const uniqueSyncs = [];
+                const seenFunctions = new Set();
+                
+                while (syncQueue.length > 0) {
+                    const syncFunction = syncQueue.shift();
+                    const funcName = syncFunction.name;
+                    if (!seenFunctions.has(funcName)) {
+                        seenFunctions.add(funcName);
+                        uniqueSyncs.push(syncFunction);
+                    }
+                }
+                
+                // Execute the latest unique sync function
+                if (uniqueSyncs.length > 0) {
+                    const syncFunction = uniqueSyncs[uniqueSyncs.length - 1];
+                    syncFunction();
+                    lastSyncTime = now;
+                }
+                
+                if (syncQueue.length > 0) {
+                    syncAnimationFrame = requestAnimationFrame(executeSyncQueue);
+                } else {
+                    syncAnimationFrame = null;
+                }
+            }
+            
+            function queueSync(syncFunction) {
+                // Clear any pending duplicates to prevent lag
+                const funcName = syncFunction.name;
+                syncQueue = syncQueue.filter(fn => fn.name !== funcName);
+                
+                syncQueue.push(syncFunction);
+                if (!syncAnimationFrame) {
+                    syncAnimationFrame = requestAnimationFrame(executeSyncQueue);
+                }
+            }
+            
             function syncBFIToBJP2() {
-                  if (!bfiOlMap || !bfiView || !olMap || !view || !H_jp2_to_bfi) return;
+                  if (!bfiOlMap || !bfiView || !olMap || !view || !H_jp2_to_bfi || isUpdatingFromSync) return;
 
                   isUpdatingFromSync = true;
 
@@ -1694,38 +1816,44 @@
                               Math.max(0, Math.min(bfiNaturalHeight, bfiCenterOL[1]))
                           ];
 
-                          bfiView.setCenter(constrainedBfiCenter);
+                          // Sync zoom
+                          const jp2Resolution = view.getResolution();
+                          const currentSize = getCurrentJP2Size();
+                          const jp2ImageSize = Math.max(currentSize[0], currentSize[1]);
+                          const bfiImageSize = Math.max(bfiNaturalWidth, bfiNaturalHeight);
+                          const sizeRatio = bfiImageSize / jp2ImageSize;
+                          const equivalentBfiResolution = jp2Resolution * sizeRatio;
+
+                          // Constrain resolution to valid range
+                          const constrainedResolution = Math.max(
+                              bfiView.getMinResolution(),
+                              Math.min(bfiView.getMaxResolution(), equivalentBfiResolution)
+                          );
+
+                          // Use immediate updates during drag, smooth animation otherwise
+                          if (isDragging) {
+                              bfiView.setCenter(constrainedBfiCenter);
+                              bfiView.setResolution(constrainedResolution);
+                          } else {
+                              bfiView.animate({
+                                  center: constrainedBfiCenter,
+                                  resolution: constrainedResolution,
+                                  duration: 0 // Immediate for sync
+                              });
+                          }
                       }
-
-                      // Sync zoom
-                      const jp2Resolution = view.getResolution();
-                      const currentSize = getCurrentJP2Size();
-                      const jp2ImageSize = Math.max(currentSize[0], currentSize[1]);
-                      const bfiImageSize = Math.max(bfiNaturalWidth, bfiNaturalHeight);
-                      const sizeRatio = bfiImageSize / jp2ImageSize;
-                      const equivalentBfiResolution = jp2Resolution * sizeRatio;
-                      //console.log("Equivalent BFI resolution:", equivalentBfiResolution);
-
-                      // Constrain resolution to valid range
-                      const constrainedResolution = Math.max(
-                          bfiView.getMinResolution(),
-                          Math.min(bfiView.getMaxResolution(), equivalentBfiResolution)
-                      );
-                      //console.log("Constrained BFI resolution:", constrainedResolution);
-
-                      bfiView.setResolution(constrainedResolution);
 
                   } catch (e) {
                       console.error("Error syncing BFI to JP2:", e);
                   }
 
-                  setTimeout(() => {
+                  requestAnimationFrame(() => {
                       isUpdatingFromSync = false;
-                  }, 100);
+                  });
               }
 
               function syncJP2ToBFI() {
-                  if (!bfiOlMap || !bfiView || !olMap || !view || !H_bfi_to_jp2) return;
+                  if (!bfiOlMap || !bfiView || !olMap || !view || !H_bfi_to_jp2 || isUpdatingFromSync) return;
 
                   isUpdatingFromSync = true;
 
@@ -1745,32 +1873,39 @@
                               Math.max(-currentSize[1], Math.min(0, jp2CenterOL[1]))
                           ];
 
-                          view.setCenter(constrainedJP2Center);
+                          // Sync zoom
+                          const bfiResolution = bfiView.getResolution();
+                          const jp2ImageSize = Math.max(currentSize[0], currentSize[1]);
+                          const bfiImageSize = Math.max(bfiNaturalWidth, bfiNaturalHeight);
+                          const sizeRatio = jp2ImageSize / bfiImageSize;
+                          const equivalentJP2Resolution = bfiResolution * sizeRatio;
+
+                          // Constrain resolution to valid range
+                          const constrainedResolution = Math.max(
+                              view.getMinResolution(),
+                              Math.min(view.getMaxResolution(), equivalentJP2Resolution)
+                          );
+
+                          // Use immediate updates during drag, smooth animation otherwise
+                          if (isDragging) {
+                              view.setCenter(constrainedJP2Center);
+                              view.setResolution(constrainedResolution);
+                          } else {
+                              view.animate({
+                                  center: constrainedJP2Center,
+                                  resolution: constrainedResolution,
+                                  duration: 0 // Immediate for sync
+                              });
+                          }
                       }
-
-                      // Sync zoom
-                      const bfiResolution = bfiView.getResolution();
-                      const currentSize = getCurrentJP2Size();
-                      const jp2ImageSize = Math.max(currentSize[0], currentSize[1]);
-                      const bfiImageSize = Math.max(bfiNaturalWidth, bfiNaturalHeight);
-                      const sizeRatio = jp2ImageSize / bfiImageSize;
-                      const equivalentJP2Resolution = bfiResolution * sizeRatio;
-
-                      // Constrain resolution to valid range
-                      const constrainedResolution = Math.max(
-                          view.getMinResolution(),
-                          Math.min(view.getMaxResolution(), equivalentJP2Resolution)
-                      );
-
-                      view.setResolution(constrainedResolution);
 
                   } catch (e) {
                       console.error("Error syncing JP2 to BFI:", e);
                   }
 
-                  setTimeout(() => {
+                  requestAnimationFrame(() => {
                       isUpdatingFromSync = false;
-                  }, 100);
+                  });
               }
 
               function constrainViewToImageBounds(mapView, imageWidth, imageHeight, isJP2 = false) {
@@ -2191,9 +2326,26 @@
                   }
               });
 
-              bfiOlMap.on('moveend', function() {
+              // Add real-time drag sync during pointer drag
+              bfiOlMap.on('pointerdrag', function() {
+                  isDragging = true;
                   if (syncEnabled && !isUpdatingFromSync && olMap && view && (isSplitView || !jp2IsFullscreen)) {
-                      syncJP2ToBFI();
+                      queueSync(syncJP2ToBFI);
+                  }
+              });
+              
+              // Add movestart for smoother drag initialization
+              bfiOlMap.on('movestart', function() {
+                  isDragging = true;
+                  if (syncEnabled && !isUpdatingFromSync && olMap && view && (isSplitView || !jp2IsFullscreen)) {
+                      queueSync(syncJP2ToBFI);
+                  }
+              });
+              
+              bfiOlMap.on('moveend', function() {
+                  isDragging = false; // Reset dragging state
+                  if (syncEnabled && !isUpdatingFromSync && olMap && view && (isSplitView || !jp2IsFullscreen)) {
+                      queueSync(syncJP2ToBFI);
                   }
               });
 
@@ -2215,14 +2367,18 @@
                   newBfiResolution = Math.max(bfiView.getMinResolution(), Math.min(bfiView.getMaxResolution(), newBfiResolution));
 
                   if (Math.abs(newBfiResolution - currentBfiResolution) > 1e-9) {
+                      // Use zoom-to-point animation for smooth zooming
                       bfiView.animate({
                           resolution: newBfiResolution,
                           anchor: bfi_ol_coord,
-                          duration: 150,
-                          easing: ol.easing.easeOut
+                          duration: 0 // Immediate for sync
                       });
+                      
+                      // Trigger sync immediately after zoom
+                      if (syncEnabled && !isUpdatingFromSync && olMap && view && (isSplitView || !jp2IsFullscreen)) {
+                          queueSync(syncJP2ToBFI);
+                      }
                   }
-                  // JP2 will be synced automatically via the moveend event
               });
               /*
               // Custom wheel handler to zoom the JP2 map
