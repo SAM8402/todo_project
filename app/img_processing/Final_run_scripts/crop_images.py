@@ -163,6 +163,7 @@ def crop_to_content(image_path, output_path=None, background_threshold=240, edge
 
     # Crop the original image
     cropped = img.crop((left, top, right, bottom))
+    print( "top ",top, "bottom ", bottom, "left ", left, "right ", right)
 
     # Save if output path provided
     if output_path:
@@ -210,20 +211,20 @@ if __name__ == "__main__":
     image_data_dir = "/home/projects/bfi_viewer/app/backend/brainviewer/static/images_data"
 
     # Test with a single image first
-    # test_image = os.path.join(image_data_dir, "142", "bfi-919.png")
-    # test_output = os.path.join(image_data_dir, "142_cropped", "bfi-919_cropped.png")
+    test_image = os.path.join(image_data_dir, "222_uncrop", "bfi-892.png")
+    test_output = os.path.join(image_data_dir, "222_cropped", "bfi-892_cropped.png")
 
-    # print("Testing with a single image...")
-    # try:
-    #     cropped = crop_to_content(test_image, test_output)
-    #     print(
-    #         f"Successfully cropped test image. Original size: {Image.open(test_image).size}, Cropped size: {cropped.size}")
-    # except Exception as e:
-    #     print(f"Error: {e}")
+    print("Testing with a single image...")
+    try:
+        cropped = crop_to_content(test_image, test_output)
+        print(
+            f"Successfully cropped test image. Original size: {Image.open(test_image).size}, Cropped size: {cropped.size}")
+    except Exception as e:
+        print(f"Error: {e}")
 
     # Process entire directory - NOW ENABLED
-    input_dir = os.path.join(image_data_dir, "222")
-    output_dir = os.path.join(image_data_dir, "cropped")
-    crop_images_in_directory(input_dir, output_dir)
+    # input_dir = os.path.join(image_data_dir, "142_BFI_clean_trans")
+    # output_dir = os.path.join(image_data_dir, "cropped")
+    # crop_images_in_directory(input_dir, output_dir)
 
     print("Image cropping completed for all images!")
